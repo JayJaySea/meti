@@ -25,7 +25,7 @@ from util import snapWidgetByCorner
 class Checklist(QFrame):
     state_changed = Signal(str)
 
-    def __init__(self, title, items, position, state, grid_size, parent=None):
+    def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -36,7 +36,7 @@ class Checklist(QFrame):
         self.state = state
         self.grid_size = grid_size
         self.parent_checklist = None
-
+        self.proxy = proxy
 
         self.move(position["x"], position["y"])
         self.setObjectName("Checklist")
@@ -95,39 +95,34 @@ class Checklist(QFrame):
         self.setCursor(Qt.OpenHandCursor)
 
     def leaveEvent(self, event):
-        self.unsetCursor()
+        self.setCursor(Qt.ArrowCursor)
 
     def mousePressEvent(self, event):
         self.grabbed = True
-        self.grabbed_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-        self.setCursor(Qt.SizeAllCursor)
-        event.accept()
+        self.grabbed_pos = event.pos()
+        self.proxy.setCursor(Qt.SizeAllCursor)
 
     def mouseReleaseEvent(self, event):
-        self.setCursor(Qt.OpenHandCursor)
+        self.proxy.setCursor(Qt.OpenHandCursor)
         self.grabbed = False
-        new_pos = event.globalPosition().toPoint() - self.grabbed_pos
+        new_pos = self.pos() + (event.pos() - self.grabbed_pos)
         new_pos.setX(round(new_pos.x() / self.grid_size) * self.grid_size)
         new_pos.setY(round(new_pos.y() / self.grid_size) * self.grid_size)
 
         current_rect = self.rect()
         new_rect = QRect(new_pos.x(), new_pos.y(), current_rect.width(), current_rect.height())
-        if not self.parent().rect().contains(new_rect):
-            return
 
-        self.move(new_pos)
+        self.move(new_pos.x(), new_pos.y())
 
     def mouseMoveEvent(self, event):
         if not self.grabbed:
             return
 
-        self.setCursor(Qt.SizeAllCursor)
-        new_pos = event.globalPosition().toPoint() - self.grabbed_pos
-
-        current_rect = self.rect()
-        new_rect = QRect(new_pos.x(), new_pos.y(), current_rect.width(), current_rect.height())
-        if not self.parent().rect().contains(new_rect):
-            return
+        new_pos = self.pos() + (event.pos() - self.grabbed_pos)
+        # current_rect = self.rect()
+        # new_rect = QRect(new_pos.x(), new_pos.y(), current_rect.width(), current_rect.height())
+        #if not self.parent().rect().contains(new_rect):
+            #return
 
         self.move(new_pos)
 
@@ -191,7 +186,7 @@ class CheckBox(QFrame):
         event.accept()
 
     def leaveEvent(self, event):
-        self.unsetCursor()
+        self.setCursor(Qt.ArrowCursor)
         if not self.active:
             self.defaultStyle()
         event.accept()
