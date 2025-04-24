@@ -109,22 +109,24 @@ class Checklist(QFrame):
         new_pos.setX(round(new_pos.x() / self.grid_size) * self.grid_size)
         new_pos.setY(round(new_pos.y() / self.grid_size) * self.grid_size)
 
-        current_rect = self.rect()
-        new_rect = QRect(new_pos.x(), new_pos.y(), current_rect.width(), current_rect.height())
+        scene_rect = self.proxy.scene().sceneRect()
+        widget_rect = self.rect()
 
-        self.move(new_pos.x(), new_pos.y())
+        new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
+        new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
+        self.move(new_x, new_y)
 
     def mouseMoveEvent(self, event):
         if not self.grabbed:
             return
 
         new_pos = self.pos() + (event.pos() - self.grabbed_pos)
-        # current_rect = self.rect()
-        # new_rect = QRect(new_pos.x(), new_pos.y(), current_rect.width(), current_rect.height())
-        #if not self.parent().rect().contains(new_rect):
-            #return
+        scene_rect = self.proxy.scene().sceneRect()
+        widget_rect = self.rect()
 
-        self.move(new_pos)
+        new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
+        new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
+        self.move(new_x, new_y)
 
     def onCheckboxStateChanged(self, state):
         item = self.items.get(self.sender())
