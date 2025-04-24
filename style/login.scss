@@ -1,0 +1,36 @@
+#LoginTitle {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-size: 80px;
+    font-weight: normal;
+    color: $green;
+}
+
+#LoginSubTitle {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-size: 10px;
+    font-weight: normal;
+    color: $green;
+}
+
+#LoginPasswordLabel {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-size: 18px;
+    font-weight: normal;
+}
+
+#LoginDialog {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-weight: normal;
+    background-color: $background;
+    border-color: $foreground;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+}
+
+#LoginError {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-weight: normal;
+    font-size: 10px;
+    color: $red;
+}

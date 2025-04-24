@@ -1,0 +1,92 @@
+$icon_path: "/home/jjs/projects/python/scout/client/data/icons";
+
+@import "colors";
+@import "checklist";
+@import "login";
+
+
+QWidget {
+    font-size: 22px;
+    font-weight: bold;
+    font-family: "Rajdhani", Arial, sans-serif;
+    color: $foreground;
+    border: none;
+    margin: 0px;
+}
+
+QStackedWidget {
+    background-color: $background-dark;
+}
+
+QLineEdit {
+    background-color: $background-dark;
+    padding: 5px;
+    border-radius: 5px;
+    border-width: 2px;
+    border-style: solid;
+    border-color: $foreground;
+}
+
+IconButton {
+    outline: 3px solid $background-dark;
+    outline-offset: 15px;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    background-color: $background-dark;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#AddButton {
+    border-color: $green;
+}
+
+#AddButton[hover=true] {
+    background-color: $background;
+}
+
+#AddButton[active=true] {
+    background-color: $green;
+}
+
+#BackButton {
+    border-color: $red;
+}
+
+#BackButton[hover=true] {
+    background-color: $background;
+}
+
+#BackButton[active=true] {
+    background-color: $red;
+}
+
+#AcceptButton {
+    border-color: $blue;
+}
+
+#AcceptButton[hover=true] {
+    background-color: $background;
+}
+
+#AcceptButton[active=true] {
+    background-color: $blue;
+}
+
+#DeleteButton {
+    border-color: $red;
+}
+
+#DeleteButton[hover=true] {
+    background-color: $background;
+}
+
+#DeleteButton[active=true] {
+    background-color: $red;
+}
+
+#Workspace {
+    background-color: $background;
+    qproperty-gridColor: $background-light;
+}
