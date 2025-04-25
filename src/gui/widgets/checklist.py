@@ -20,12 +20,12 @@ from PySide6.QtWidgets import (
 )
 
 from gui.widgets.button import DeleteButton
-from util import snapWidgetByCorner
 
 class Checklist(QFrame):
     state_changed = Signal(str)
+    position_changed = Signal(int, int)
 
-    def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None):
+    def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None, id=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -37,6 +37,7 @@ class Checklist(QFrame):
         self.grid_size = grid_size
         self.parent_checklist = None
         self.proxy = proxy
+        self.id = id
 
         self.move(position["x"], position["y"])
         self.setObjectName("Checklist")
@@ -115,6 +116,10 @@ class Checklist(QFrame):
         new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
         new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
         self.move(new_x, new_y)
+        for line in self.proxy.connected_lines:
+            line.updatePath()
+
+        self.position_changed.emit(new_x, new_y)
 
     def mouseMoveEvent(self, event):
         if not self.grabbed:
@@ -140,7 +145,6 @@ class Checklist(QFrame):
         state_list = list(state_str)
         state_list[index] = new_value
         return "".join(state_list)
-
 
 class CheckBox(QFrame):
     state_changed = Signal(bool)

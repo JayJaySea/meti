@@ -68,3 +68,8 @@ def updateChecklistState(id, state):
     global db
     db.execute('update checklists set state = ? where id = ?', (state, id))
     db.commit()
+
+def updateChecklistPosition(id, new_x, new_y):
+    global db
+    db.execute('update checklists set position_x = ?, position_y = ? where id = ?', (new_x, new_y, id))
+    db.commit()
