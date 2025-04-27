@@ -7,7 +7,8 @@ from PySide6.QtWidgets import (
 )
 
 from gui.login import Login
-from gui.workspace import Workspace
+from gui.project import Project
+from db import model
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -25,7 +26,29 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(login)
         self.setCentralWidget(self.stack)
         
-    @Slot()
     def onDatabaseDecrypted(self):
-        self.stack.addWidget(Workspace(self))
+        project = model.getLastAccessedProject()
+        self.displayProject(project)
+
+    def onProjectCreated(self):
+        old_project = self.stack.widget(1)
+        self.stack.removeWidget(old_project)
+        old_project.deleteLater()
+
+        project = model.getLastAccessedProject()
+        self.displayProject(project)
+
+    def onOpenProject(self, project):
+        old_project = self.stack.widget(1)
+        self.stack.removeWidget(old_project)
+        old_project.deleteLater()
+
+        self.displayProject(project)
+
+    def displayProject(self, project):
+        model.updateLastAccessedProject(project["id"])
+        project_widget = Project(project, parent=self)
+        project_widget.project_created.connect(self.onProjectCreated)
+        project_widget.open_project.connect(self.onOpenProject)
+        self.stack.addWidget(project_widget)
         self.stack.setCurrentIndex(1)

@@ -1,4 +1,6 @@
 from pysqlcipher3 import dbapi2 as sqlcipher
+import time
+import uuid
 import os
 import data
 
@@ -34,13 +36,23 @@ def decryptDatabase(password):
         print(x)
         return False
 
+def createProject(name, is_template):
+    global db
+    db.execute('insert into projects values (?, ?, ?, ?)', (str(uuid.uuid4()), name, is_template, int(time.time())))
+    db.commit()
+
 def getProjects():
     global db
-    return db.execute('select * from projects;').fetchall()
+    return db.execute('select * from projects order by last_accessed desc ;').fetchall()
 
 def getLastAccessedProject():
     global db
     return db.execute('select * from projects order by last_accessed desc limit 1;').fetchone()
+
+def updateLastAccessedProject(id):
+    global db
+    db.execute('update projects set last_accessed = ? where id = ?', (int(time.time()),id))
+    db.commit()
 
 def getProjectChecklists(project_id):
     global db

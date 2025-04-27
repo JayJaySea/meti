@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QLayout,
 )
 from gui.widgets.button import IconButton, BackButton, AcceptButton
-from gui.widgets.dialog import DialogTemplate
 from db import model
 from time import sleep
 

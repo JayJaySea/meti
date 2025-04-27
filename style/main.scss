@@ -86,8 +86,105 @@ IconButton {
     background-color: $red;
 }
 
+#CloseButton {
+    border-color: $red;
+}
+
+#CloseButton[hover=true] {
+    background-color: $background;
+}
+
+#CloseButton[active=true] {
+    background-color: $red;
+}
+
+#MenuButton {
+    border-color: $blue;
+}
+
+#MenuButton[hover=true] {
+    background-color: $background;
+}
+
+#MenuButton[active=true] {
+    background-color: $blue;
+}
+
+#OpenButton {
+    border-color: $blue;
+}
+
+#OpenButton[hover=true] {
+    background-color: $background;
+}
+
+#OpenButton[active=true] {
+    background-color: $blue;
+}
+
 #Workspace {
     background-color: $background;
     qproperty-gridColor: $background-light;
     qproperty-lineColor: $foreground;
+}
+
+#ProjectName {
+    background-color: $background;
+    font-family: "Orbitron", Arial, sans-serif;
+    text-transform: uppercase;
+    font-weight: normal;
+    font-size: 25px;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    border-color: $purple;
+    color: $foreground;
+}
+
+#TextInputLabel {
+    font-family: "Orbitron", Arial, sans-serif;
+    font-weight: normal;
+    font-size: 18px;
+}
+
+#TextInputLabel {
+    font-size: 18px;
+}
+
+#Dialog {
+    background-color: $background;
+    border-color: $foreground;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+}
+
+#TransparentContainer {
+    background-color: transparent;
+}
+
+#CreateChecklistButton {
+    background-color: $background-dark;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 7px;
+    border-color: $blue;
+}
+
+#CreateChecklistButton[hover=true] {
+    background-color: $background;
+    border-radius: 10px;
+    border-style: solid;
+    border-width: 2px;
+    border-color: $blue;
+}
+
+#CreateChecklistButtonIndicator {
+    background-color: $blue;
+    border-radius: 6px;
+}
+
+#CreateChecklistDestination {
+    background-color: $foreground;
+    border-radius: 7px;
 }

@@ -25,11 +25,11 @@ from PySide6.QtWidgets import (
 )
 
 from db import model
-from gui.widgets.checklist import Checklist
+from gui.widgets.checklist import Checklist, CreateChecklistButton, CreateChecklistDestination
 from util import centerLeft, centerRight, topCenter, bottomCenter
 
 class Workspace(QGraphicsView):
-    def __init__(self, parent=None):
+    def __init__(self, project, parent=None):
         super().__init__(parent)
         self.setLayout(None)
         self.setObjectName("Workspace")
@@ -45,6 +45,7 @@ class Workspace(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
+        self.project = project
         self.is_panning = False
         self.last_mouse_pos = None
         self.zoomed_out = False
@@ -52,7 +53,14 @@ class Workspace(QGraphicsView):
         self.grid_color = QColor("#cccccc")
         self.line_color = QColor("#cccccc")
         self.grid_size = 50
-        self.project = model.getLastAccessedProject()
+
+        proxy = QGraphicsProxyWidget()
+        self.scene.addItem(proxy)
+        self.create_checklist_destination = CreateChecklistDestination(proxy=proxy)
+        proxy.setWidget(self.create_checklist_destination)
+        self.create_checklist_destination.hide()
+        self.creating_checklist = False
+        self.creator_line = None
 
         self.initChecklists()
         self.adjustChecklistsSize()
@@ -67,12 +75,7 @@ class Workspace(QGraphicsView):
                 "y": checklist["position_y"],
             }
 
-            proxy = TrackingProxy()
-            proxy.setFlags(
-                QGraphicsItem.ItemIsMovable |
-                QGraphicsItem.ItemIsSelectable |
-                QGraphicsItem.ItemSendsGeometryChanges
-            )
+            proxy = QGraphicsProxyWidget()
             self.scene.addItem(proxy)
 
             checklist["widget"] = Checklist(checklist["title"], checklist["checks"], position, checklist["state"], self.grid_size, proxy=proxy, id=checklist["id"])
@@ -80,6 +83,15 @@ class Workspace(QGraphicsView):
 
             checklist["widget"].state_changed.connect(self.onChecklistStateChanged)
             checklist["widget"].position_changed.connect(self.onChecklistPositionChanged)
+            checklist["widget"].checklist_moved.connect(self.onChecklistMoved)
+
+            proxy = QGraphicsProxyWidget()
+            proxy.setZValue(100)
+            self.scene.addItem(proxy)
+            checklist["creator"] = CreateChecklistButton(proxy=proxy)
+            checklist["creator"].pressed.connect(self.checklistCreatorPressed)
+            checklist["creator"].released.connect(self.checklistCreatorReleased)
+            proxy.setWidget(checklist["creator"])
 
             self.checklists[checklist["id"]] = checklist
 
@@ -131,6 +143,11 @@ class Workspace(QGraphicsView):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
+            scene_pos = self.mapToScene(event.pos())
+            item = self.scene.itemAt(scene_pos, self.transform())
+            if not isinstance(item, GridBackground):
+                return
+
             if self.zoomed_out:
                 self.resetTransform()
                 self.zoomed_out = False
@@ -162,6 +179,17 @@ class Workspace(QGraphicsView):
             delta = event.pos() - self.last_mouse_pos
             self.last_mouse_pos = event.pos()
             self.translate(delta.x() * -1, delta.y() * -1)
+        if self.creating_checklist:
+            if not self.creator_line.isVisible():
+                self.creator_line.show()
+                self.create_checklist_destination.show()
+
+            scene_pos = self.mapToScene(event.pos())
+            new_x = scene_pos.x() - self.create_checklist_destination.width()/2
+            new_y = scene_pos.y() - self.create_checklist_destination.height()/2
+            self.create_checklist_destination.move(new_x, new_y)
+            self.creator_line.updatePath()
+
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -182,6 +210,9 @@ class Workspace(QGraphicsView):
         if not hasattr(self, "lines_initialized"):
             self.lines_initialized = True
             self.assignParents(self.parents)
+        if not hasattr(self, "creators_initialized"):
+            self.creators_initialized = True
+            self.updateCreatorsPosition()
 
     def assignParents(self, parents):
         for parent_id in parents:
@@ -193,14 +224,36 @@ class Workspace(QGraphicsView):
                 line = LineItem(parent.proxy, child.proxy, self.lineColor)
                 self.scene.addItem(line)
 
-                parent.proxy.addLine(line)
-                child.proxy.addLine(line)
+                parent.addLine(line)
+                child.addLine(line)
+
+    def updateCreatorsPosition(self):
+        for checklist in self.checklists.values():
+            new_x = checklist["widget"].x() + checklist["widget"].width() - checklist["creator"].width()/2
+            new_y = checklist["widget"].y() + checklist["widget"].height()/2 - checklist["creator"].height()/2
+            checklist["creator"].move(new_x, new_y)
 
     def onChecklistStateChanged(self, state):
         model.updateChecklistState(self.sender().id, state)
 
+    def onChecklistMoved(self):
+        self.updateCreatorsPosition()
+
     def onChecklistPositionChanged(self, new_x, new_y):
         model.updateChecklistPosition(self.sender().id, new_x, new_y)
+        self.updateCreatorsPosition()
+
+    def checklistCreatorPressed(self, event):
+        self.creating_checklist = True
+        self.creator_line = LineItem(self.sender().proxy, self.create_checklist_destination.proxy, self.lineColor)
+        self.creator_line.hide()
+        self.scene.addItem(self.creator_line)
+
+    def checklistCreatorReleased(self, event):
+        self.creating_checklist = False
+        self.scene.removeItem(self.creator_line)
+        self.creator_line = None
+        self.create_checklist_destination.hide()
         
 class GridBackground(QGraphicsItem):
     def __init__(self, grid_size=100, scene_width=3000, scene_height=3000, grid_color="#cccccc"):
@@ -223,11 +276,11 @@ class GridBackground(QGraphicsItem):
             painter.drawLine(0, y, self.scene_height, y)
 
 class LineItem(QGraphicsPathItem):
-    def __init__(self, source_item, dest_item, color, radius = 15):
+    def __init__(self, source_item, dest_item, color, radius=15):
         super().__init__()
         self.source_item = source_item
         self.dest_item = dest_item
-        self.setZValue(1000)
+        self.setZValue(10)
         self.radius = radius
         self.setPen(QPen(color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         self.updatePath()
@@ -247,17 +300,3 @@ class LineItem(QGraphicsPathItem):
         path.cubicTo(ctrl1, ctrl2, end)
 
         self.setPath(path)
-
-class TrackingProxy(QGraphicsProxyWidget):
-    def __init__(self):
-        super().__init__()
-        self.connected_lines = []
-
-    def addLine(self, line):
-        self.connected_lines.append(line)
-
-    def itemChange(self, change, value):
-        if change == QGraphicsItem.ItemPositionChange:
-            for line in self.connected_lines:
-                line.updatePath()
-        return super().itemChange(change, value)

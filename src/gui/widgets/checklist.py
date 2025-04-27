@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QApplication
 from PySide6 import QtGui
-from PySide6.QtCore import Qt, QPoint, Signal, Slot, QRect
+from PySide6.QtGui import QRegion, QBitmap, QPainter
+from PySide6.QtCore import Qt, QPoint, Signal, Slot, QRect, QEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -23,6 +24,7 @@ from gui.widgets.button import DeleteButton
 
 class Checklist(QFrame):
     state_changed = Signal(str)
+    checklist_moved = Signal()
     position_changed = Signal(int, int)
 
     def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None, id=None):
@@ -36,6 +38,7 @@ class Checklist(QFrame):
         self.state = state
         self.grid_size = grid_size
         self.parent_checklist = None
+        self.connected_lines = []
         self.proxy = proxy
         self.id = id
 
@@ -44,6 +47,7 @@ class Checklist(QFrame):
 
         self.initHead()
         self.initBody(items)
+
         self.initLayout()
 
     def initHead(self):
@@ -80,14 +84,13 @@ class Checklist(QFrame):
         layout = QVBoxLayout() 
 
         layout.setContentsMargins(0, 0, 0, 0)
-        #layout.setSpacing(0)
         layout.addWidget(self.head)
         layout.addWidget(self.body, stretch=1)
 
         self.setLayout(layout)
 
-    def setParentChecklist(self, checklist):
-        self.parent_checklist = checklist
+    def addLine(self, line):
+        self.connected_lines.append(line)
 
     def delete(self):
         pass
@@ -116,7 +119,7 @@ class Checklist(QFrame):
         new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
         new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
         self.move(new_x, new_y)
-        for line in self.proxy.connected_lines:
+        for line in self.connected_lines:
             line.updatePath()
 
         self.position_changed.emit(new_x, new_y)
@@ -132,6 +135,9 @@ class Checklist(QFrame):
         new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
         new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
         self.move(new_x, new_y)
+        self.checklist_moved.emit()
+        for line in self.connected_lines:
+            line.updatePath()
 
     def onCheckboxStateChanged(self, state):
         item = self.items.get(self.sender())
@@ -179,9 +185,9 @@ class CheckBox(QFrame):
         layout.setSpacing(5)
 
         layout.addWidget(self.checkbox)
-        label = QLabel(self.label)
-        label.setObjectName("CheckBoxLabel")
-        layout.addWidget(label, stretch=1)
+        self.label = QLabel(self.label)
+        self.label.setObjectName("CheckBoxLabel")
+        layout.addWidget(self.label, stretch=1)
         self.setLayout(layout)
 
     def enterEvent(self, event):
@@ -248,3 +254,63 @@ class CheckBox(QFrame):
         self.indicator.style().unpolish(self.indicator)
         self.indicator.style().polish(self.indicator)
         self.indicator.update()
+
+class CreateChecklistButton(QFrame):
+    pressed = Signal(QEvent)
+    released = Signal(QEvent)
+
+    def __init__(self, parent=None, proxy=None):
+        super().__init__(parent)
+        self.setObjectName("TransparentContainer")
+        self.resize(14, 14)
+
+        self.proxy = proxy
+        self.circle = QFrame(self)
+        self.circle.setObjectName("CreateChecklistButton")
+        self.circle.resize(14, 14)
+        self.inner_circle = QFrame(self.circle)
+        self.inner_circle.resize(12, 12)
+        self.inner_circle.move(4, 4)
+        self.inner_circle.setObjectName("CreateChecklistButtonIndicator")
+        self.inner_circle.hide()
+    
+    def enterEvent(self, event):
+        self.setCursor(Qt.PointingHandCursor)
+        self.circle.setProperty("hover", True)
+        self.move(self.x() - 3, self.y() - 3)
+        self.resize(20, 20)
+        self.circle.resize(20, 20)
+        self.refreshStyle()
+
+    def leaveEvent(self, event):
+        self.setCursor(Qt.ArrowCursor)
+        self.circle.setProperty("hover", False)
+        self.move(self.x() + 3, self.y() + 3)
+        self.resize(14, 14)
+        self.circle.resize(14, 14)
+        self.inner_circle.hide()
+        self.refreshStyle()
+
+    def mousePressEvent(self, event):
+        self.proxy.setCursor(Qt.ArrowCursor)
+        self.inner_circle.show()
+        self.pressed.emit(event)
+
+    def mouseReleaseEvent(self, event):
+        self.inner_circle.hide()
+        self.released.emit(event)
+
+    def refreshStyle(self):
+        self.circle.style().unpolish(self.circle)
+        self.circle.style().polish(self.circle)
+        self.circle.update()
+
+class CreateChecklistDestination(QFrame):
+    def __init__(self, parent=None, proxy=None):
+        super().__init__(parent)
+        self.setObjectName("TransparentContainer")
+        self.resize(14, 14)
+        self.proxy = proxy
+        self.circle = QFrame(self)
+        self.circle.setObjectName("CreateChecklistDestination")
+        self.circle.resize(14, 14)

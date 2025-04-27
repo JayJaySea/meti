@@ -1,5 +1,5 @@
 from PySide6 import QtGui
-from PySide6.QtCore import QSize, Qt, QPoint
+from PySide6.QtCore import QSize, Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QColor
 from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle
 import os
@@ -7,8 +7,10 @@ from data import DATA_DIR
 
 
 class IconButton(QPushButton):
-    def __init__(self, name, icon_name, callback):
-        super().__init__()
+    pressed = Signal(str)
+
+    def __init__(self, name, icon_name, callback, size="large", parent=None, id=None):
+        super().__init__(parent)
         self.setObjectName(name)
         self.callback = callback
         self.icon_default = QPixmap(os.path.join(DATA_DIR, "icons", icon_name+".png"))
@@ -16,13 +18,24 @@ class IconButton(QPushButton):
         self.icon_active = QPixmap(os.path.join(DATA_DIR, "icons", icon_name+"-active.png"))
         self.hovering = False
         self.active = False
+        self.id = id
 
         self.setMouseTracking(True)
 
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
-        self.setFixedSize(40, 40)
         self.setIcon(self.icon_default)
-        self.setIconSize(QSize(26, 26))
+        self.setSize(size)
+
+    def setSize(self, size):
+        if size == "small":
+            self.setFixedSize(20, 20)
+            self.setIconSize(QSize(6, 6))
+        elif size == "medium":
+            self.setFixedSize(30, 30)
+            self.setIconSize(QSize(16, 16))
+        else:
+            self.setFixedSize(40, 40)
+            self.setIconSize(QSize(26, 26))
 
     def enterEvent(self, event):
         self.setCursor(Qt.PointingHandCursor)
@@ -57,6 +70,8 @@ class IconButton(QPushButton):
         self.defaultStyle()
         if self.hovering:
             self.callback()
+            if self.id:
+                self.pressed.emit(self.id)
 
     def defaultStyle(self):
         self.setProperty("hover", False)
@@ -80,17 +95,29 @@ class IconButton(QPushButton):
         self.update()
 
 class AddButton(IconButton):
-    def __init__(self, callback):
-        super().__init__("AddButton", "add", callback)
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("AddButton", "add", callback, size=size, parent=parent, id=id)
 
 class BackButton(IconButton):
-    def __init__(self, callback):
-        super().__init__("BackButton", "back", callback)
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("BackButton", "back", callback, size=size, parent=parent, id=id)
 
 class AcceptButton(IconButton):
-    def __init__(self, callback):
-        super().__init__("AcceptButton", "accept", callback)
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("AcceptButton", "accept", callback, size=size, parent=parent, id=id)
 
 class DeleteButton(IconButton):
-    def __init__(self, callback):
-        super().__init__("DeleteButton", "delete", callback)
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("DeleteButton", "delete", callback, size=size, parent=parent, id=id)
+
+class CloseButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("CloseButton", "close", callback, size=size, parent=parent, id=id)
+
+class MenuButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("MenuButton", "menu", callback, size=size, parent=parent, id=id)
+
+class OpenButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("OpenButton", "open", callback, size=size, parent=parent, id=id)
