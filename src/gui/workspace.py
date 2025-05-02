@@ -24,8 +24,10 @@ from PySide6.QtWidgets import (
     QLayout,
 )
 
+import math
 from db import model
-from gui.widgets.checklist import Checklist, CreateChecklistButton, CreateChecklistDestination
+from gui.widgets.checklist import Checklist, CreateChecklistButton, CreateChecklistDestination, ChecklistEditor
+from gui.widgets.dialog import DialogTemplate
 from util import centerLeft, centerRight, topCenter, bottomCenter
 
 class Workspace(QGraphicsView):
@@ -53,14 +55,20 @@ class Workspace(QGraphicsView):
         self.grid_color = QColor("#cccccc")
         self.line_color = QColor("#cccccc")
         self.grid_size = 50
+        self.creator_checklist_id = None
 
         proxy = QGraphicsProxyWidget()
         self.scene.addItem(proxy)
         self.create_checklist_destination = CreateChecklistDestination(proxy=proxy)
         proxy.setWidget(self.create_checklist_destination)
         self.create_checklist_destination.hide()
+
+        self.checklist_editor = ChecklistEditor()
+        self.checklist_editor.checklist_ready.connect(self.checklistReady)
+        self.checklist_editor_dialog = DialogTemplate(self.checklist_editor, self.parent().window())
         self.creating_checklist = False
         self.creator_line = None
+
 
         self.initChecklists()
         self.adjustChecklistsSize()
@@ -70,30 +78,39 @@ class Workspace(QGraphicsView):
         checklists = model.getProjectChecklists(self.project["id"])
         self.parents = self.findParents(checklists)
         for checklist in checklists:
-            position = {
-                "x": checklist["position_x"],
-                "y": checklist["position_y"],
-            }
-
-            proxy = QGraphicsProxyWidget()
-            self.scene.addItem(proxy)
-
-            checklist["widget"] = Checklist(checklist["title"], checklist["checks"], position, checklist["state"], self.grid_size, proxy=proxy, id=checklist["id"])
-            proxy.setWidget(checklist["widget"])
-
-            checklist["widget"].state_changed.connect(self.onChecklistStateChanged)
-            checklist["widget"].position_changed.connect(self.onChecklistPositionChanged)
-            checklist["widget"].checklist_moved.connect(self.onChecklistMoved)
-
-            proxy = QGraphicsProxyWidget()
-            proxy.setZValue(100)
-            self.scene.addItem(proxy)
-            checklist["creator"] = CreateChecklistButton(proxy=proxy)
-            checklist["creator"].pressed.connect(self.checklistCreatorPressed)
-            checklist["creator"].released.connect(self.checklistCreatorReleased)
-            proxy.setWidget(checklist["creator"])
+            checklist["widget"] = self.createChecklistWidget(checklist)
+            checklist["creator"] = self.createChecklistCreator(checklist["id"])
 
             self.checklists[checklist["id"]] = checklist
+
+    def createChecklistWidget(self, checklist):
+        position = {
+            "x": checklist["position_x"],
+            "y": checklist["position_y"],
+        }
+
+        proxy = QGraphicsProxyWidget()
+        self.scene.addItem(proxy)
+
+        widget = Checklist(checklist["title"], checklist["checks"], position, checklist["state"], self.grid_size, proxy=proxy, id=checklist["id"])
+        proxy.setWidget(widget)
+
+        widget.state_changed.connect(self.onChecklistStateChanged)
+        widget.position_changed.connect(self.onChecklistPositionChanged)
+        widget.checklist_moved.connect(self.onChecklistMoved)
+
+        return widget
+
+    def createChecklistCreator(self, id):
+        proxy = QGraphicsProxyWidget()
+        proxy.setZValue(100)
+        self.scene.addItem(proxy)
+        creator = CreateChecklistButton(proxy=proxy, id=id)
+        creator.pressed.connect(self.checklistCreatorPressed)
+        creator.released.connect(self.checklistCreatorReleased)
+        proxy.setWidget(creator)
+
+        return creator
 
     def findParents(self, checklists):
         parents = {}
@@ -220,12 +237,14 @@ class Workspace(QGraphicsView):
             children = parents[parent_id]
             for child_id in children:
                 child = self.checklists[child_id]["widget"]
+                self.createParentChildLine(parent, child)
 
-                line = LineItem(parent.proxy, child.proxy, self.lineColor)
-                self.scene.addItem(line)
+    def createParentChildLine(self, parent, child):
+        line = LineItem(parent.proxy, child.proxy, self.lineColor)
+        self.scene.addItem(line)
 
-                parent.addLine(line)
-                child.addLine(line)
+        parent.addLine(line)
+        child.addLine(line)
 
     def updateCreatorsPosition(self):
         for checklist in self.checklists.values():
@@ -244,6 +263,7 @@ class Workspace(QGraphicsView):
         self.updateCreatorsPosition()
 
     def checklistCreatorPressed(self, event):
+        self.creator_checklist_id = self.sender().id
         self.creating_checklist = True
         self.creator_line = LineItem(self.sender().proxy, self.create_checklist_destination.proxy, self.lineColor)
         self.creator_line.hide()
@@ -254,7 +274,72 @@ class Workspace(QGraphicsView):
         self.scene.removeItem(self.creator_line)
         self.creator_line = None
         self.create_checklist_destination.hide()
+        self.checklist_editor_dialog.show()
         
+    def resizeEvent(self, event):
+        self.checklist_editor_dialog.resizeEvent(event)
+
+    def checklistReady(self, title, items, id):
+        if id: 
+            self.updateChecklist(title, items, id)
+            return
+
+        self.createChecklist(title, items)
+
+    def updateChecklist(self, title, items, id):
+        pass
+
+    def createChecklist(self, title, items):
+        self.checklist_editor_dialog.hide()
+        state = '0' * len(items)
+        template_id = model.createChecklistTemplate(title)
+        for item in items:
+            id = model.createCheck(template_id, item["content"], item["position"])
+            item["id"] = id
+
+        checklist = {
+            "title": title,
+            "template_id": template_id,
+            "project_id": self.project["id"],
+            "parent_id": self.creator_checklist_id,
+            "state": state,
+            "position_x": 0,
+            "position_y": 0
+        }
+        checklist["checks"] = items
+        checklist["id"] = model.createChecklist(checklist)
+        checklist["widget"] = self.createChecklistWidget(checklist)
+        checklist["creator"] = self.createChecklistCreator(checklist["id"])
+
+
+        self.checklists[checklist["id"]] = checklist
+        self.adjustChecklistsSize()
+
+        new_x, new_y = self.calculateSnapPosition(checklist["widget"], self.create_checklist_destination.x(), self.create_checklist_destination.y())
+        model.updateChecklistPosition(checklist["id"], new_x, new_y)
+
+        checklist["widget"].move(new_x, new_y)
+        self.updateCreatorsPosition()
+        self.createParentChildLine(self.checklists[checklist["parent_id"]]["widget"], checklist["widget"])
+
+    def calculateSnapPosition(self, widget, x, y):
+        cell_x = x // self.grid_size * self.grid_size
+        cell_y = y // self.grid_size * self.grid_size
+
+        corners = [
+            (cell_x, cell_y),
+            (cell_x + self.grid_size, cell_y),
+            (cell_x, cell_y + self.grid_size),
+            (cell_x + self.grid_size, cell_y + self.grid_size),
+        ]
+
+        new_x, new_y = min(corners, key=lambda c: math.hypot(x - c[0], y - c[1]))
+        new_y -= round(widget.height()/100)*50
+        
+        return new_x, new_y
+
+
+
 class GridBackground(QGraphicsItem):
     def __init__(self, grid_size=100, scene_width=3000, scene_height=3000, grid_color="#cccccc"):
         super().__init__()

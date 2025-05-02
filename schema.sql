@@ -1,13 +1,13 @@
 create table projects (
     id uuid primary key,
-    name text unique,
-    is_template boolean,
+    name text unique not null,
+    is_template boolean not null,
     last_accessed integer
 );
 
 create table checklist_templates (
     id uuid primary key,
-    title text
+    title text not null
 );
 
 create table checklists (
@@ -15,16 +15,16 @@ create table checklists (
     template_id uuid references checklist_templates(id) not null,
     project_id uuid references projects(id) not null,
     parent uuid references checklists(id),
-    state text,
-    position_x integer,
-    position_y integer
+    state text not null,
+    position_x integer not null,
+    position_y integer not null
 );
 
 create table checks (
     id uuid primary key,
     template_id uuid references checklist_templates(id),
-    content text,
-    position integer
+    content text not null,
+    position integer not null
 );
 
 insert into projects values ('79c9ef23-050c-4d2c-8789-aab3b2009390', "test", false, 1745247663);

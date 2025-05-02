@@ -122,6 +122,30 @@ IconButton {
     background-color: $blue;
 }
 
+#UpDownButton {
+    border-color: $yellow;
+}
+
+#UpDownButton[hover=true] {
+    background-color: $background;
+}
+
+#UpDownButton[active=true] {
+    background-color: $yellow;
+}
+
+#EditButton {
+    border-color: $yellow;
+}
+
+#EditButton[hover=true] {
+    background-color: $background;
+}
+
+#EditButton[active=true] {
+    background-color: $yellow;
+}
+
 #Workspace {
     background-color: $background;
     qproperty-gridColor: $background-light;
@@ -149,6 +173,14 @@ IconButton {
 
 #TextInputLabel {
     font-size: 18px;
+}
+
+#Container {
+    background-color: $background;
+    border-color: $foreground;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
 }
 
 #Dialog {
@@ -187,4 +219,35 @@ IconButton {
 #CreateChecklistDestination {
     background-color: $foreground;
     border-radius: 7px;
+}
+
+QScrollBar:vertical {
+    border: none;
+    background: $background;
+    width: 10px;
+    margin: 0px 0px 0px 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: $blue;
+    min-height: 20px;
+    border-radius: 2px;
+    margin-left: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: $foreground;
+}
+
+QScrollBar::handle:vertical:pressed {
+    background: $foreground;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
 }

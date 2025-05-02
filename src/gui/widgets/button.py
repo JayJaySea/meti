@@ -1,5 +1,5 @@
 from PySide6 import QtGui
-from PySide6.QtCore import QSize, Qt, QPoint, Signal
+from PySide6.QtCore import QSize, Qt, QPoint, Signal, QEvent
 from PySide6.QtGui import QPixmap, QColor
 from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle
 import os
@@ -121,3 +121,31 @@ class MenuButton(IconButton):
 class OpenButton(IconButton):
     def __init__(self, callback, size="large", parent=None, id=None):
         super().__init__("OpenButton", "open", callback, size=size, parent=parent, id=id)
+
+class UpDownButton(IconButton):
+    pressed = Signal()
+    moving = Signal(QEvent)
+    released = Signal()
+
+    def __init__(self, callback=None, size="large", parent=None, id=None):
+        super().__init__("UpDownButton", "updown", callback=lambda: (), size=size, parent=parent, id=id)
+
+    def enterEvent(self, event):
+        self.setCursor(Qt.OpenHandCursor)
+        self.hoverStyle()
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.setCursor(Qt.ClosedHandCursor)
+        self.pressed.emit()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.released.emit()
+
+    def mouseMoveEvent(self, event):
+        self.moving.emit(event)
+
+class EditButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("EditButton", "edit", callback, size=size, parent=parent, id=id)

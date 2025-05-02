@@ -9,7 +9,7 @@ class DialogTemplate(QFrame):
         super().__init__(window)
 
         self.setGeometry(window.rect())
-        self.setFixedSize(window.width(), window.height())
+        self.resize(window.width(), window.height())
         self.setStyleSheet("DialogTemplate{background-color: rgba(0,0,0,100)}")
         self.setAttribute(Qt.WA_DeleteOnClose)
 
@@ -27,8 +27,7 @@ class DialogTemplate(QFrame):
             self.hide()
 
     def resizeEvent(self, event):
-        self.setGeometry(self.window().rect())
-        self.setFixedSize(self.window().width(), self.window().height())
+        self.resize(self.window().width(), self.window().height())
         self.dialog.move(
             (self.width() - self.dialog.width()) // 2,
             (self.height() - self.dialog.height()) // 2

@@ -121,6 +121,8 @@ class Project(QFrame):
 
     def resizeEvent(self, event):
         self.updateRects()
+        self.open_project_dialog.resizeEvent(event)
+        self.create_project_dialog.resizeEvent(event)
 
     def showEvent(self, event):
         self.updateRects()

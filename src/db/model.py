@@ -38,8 +38,10 @@ def decryptDatabase(password):
 
 def createProject(name, is_template):
     global db
-    db.execute('insert into projects values (?, ?, ?, ?)', (str(uuid.uuid4()), name, is_template, int(time.time())))
+    id = str(uuid.uuid4())
+    db.execute('insert into projects values (?, ?, ?, ?)', (id, name, is_template, int(time.time())))
     db.commit()
+    return id
 
 def getProjects():
     global db
@@ -71,9 +73,31 @@ def getChecklistTemplate(id):
     global db
     return db.execute('select * from checklist_templates where id = ?', (id,)).fetchone()
 
+def createChecklistTemplate(title):
+    global db
+    id = str(uuid.uuid4())
+    db.execute('insert into checklist_templates values (?, ?)', (id, title))
+    db.commit()
+    return id
+
+def createCheck(template_id, content, position):
+    global db
+    id = str(uuid.uuid4())
+    db.execute('insert into checks values (?, ?, ?, ?)', (id, template_id, content, position))
+    db.commit()
+    return id
+
+def createChecklist(checklist):
+    global db
+    id = str(uuid.uuid4())
+    db.execute('insert into checklists values (?, ?, ?, ?, ?, ?, ?)', (id, checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["state"], checklist["position_x"], checklist["position_y"]))
+    db.commit()
+    return id
+
+
 def updateChecklist(checklist):
     global db
-    db.execute('update checklists set template_id = ?, project_id = ?, parent = ?, state = ?, position_x = ?, position_y = ? where id = ?', (checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["state"], checklist["position_x"], checklist["postition_y"], id))
+    db.execute('update checklists set template_id = ?, project_id = ?, parent = ?, state = ?, position_x = ?, position_y = ? where id = ?', (checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["state"], checklist["position_x"], checklist["position_y"], id))
     db.commit()
 
 def updateChecklistState(id, state):
