@@ -2,7 +2,10 @@ create table projects (
     id uuid primary key,
     name text unique not null,
     is_template boolean not null,
-    last_accessed integer
+    last_accessed integer,
+    view_x integer,
+    view_y integer,
+    zoomed_out boolean not null
 );
 
 create table checklist_templates (
@@ -14,7 +17,7 @@ create table checklists (
     id uuid primary key,
     template_id uuid references checklist_templates(id) not null,
     project_id uuid references projects(id) not null,
-    parent uuid references checklists(id),
+    parent_id uuid references checklists(id),
     state text not null,
     position_x integer not null,
     position_y integer not null
@@ -27,7 +30,7 @@ create table checks (
     position integer not null
 );
 
-insert into projects values ('79c9ef23-050c-4d2c-8789-aab3b2009390', "test", false, 1745247663);
+insert into projects values ('79c9ef23-050c-4d2c-8789-aab3b2009390', "test", false, 1745247663, null, null, false);
 insert into checklist_templates values ('285ed465-0ec4-4e1f-9b4c-24271577d81f', "Test");
 insert into checklists values ('3600dc0e-38c3-4b88-8846-8739b5de95f3', '285ed465-0ec4-4e1f-9b4c-24271577d81f', "79c9ef23-050c-4d2c-8789-aab3b2009390", null, "01", 100, 100);
 insert into checks values ('bc247ed8-8d55-419d-87f5-51de7a06b480', '285ed465-0ec4-4e1f-9b4c-24271577d81f', "Yay it works", 0);

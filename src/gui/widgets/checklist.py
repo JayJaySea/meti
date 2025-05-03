@@ -26,6 +26,7 @@ class Checklist(QFrame):
     state_changed = Signal(str)
     checklist_moved = Signal()
     position_changed = Signal(int, int)
+    delete_checklist = Signal(str)
 
     def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None, id=None):
         super().__init__(parent)
@@ -59,7 +60,7 @@ class Checklist(QFrame):
         placeholder.setFixedSize(50, 50)
         layout.addWidget(placeholder)
         layout.addWidget(EditButton(lambda: print("TODO!")))
-        layout.addWidget(DeleteButton(self.delete))
+        layout.addWidget(DeleteButton(lambda: self.delete_checklist.emit(self.id)))
 
         self.head = QWidget()
         self.head.setObjectName("ChecklistHead")
@@ -92,9 +93,6 @@ class Checklist(QFrame):
 
     def addLine(self, line):
         self.connected_lines.append(line)
-
-    def delete(self):
-        pass
 
     def enterEvent(self, event):
         self.setCursor(Qt.OpenHandCursor)
@@ -152,6 +150,11 @@ class Checklist(QFrame):
         state_list = list(state_str)
         state_list[index] = new_value
         return "".join(state_list)
+
+    def removeLine(self, line):
+        if line in self.connected_lines:
+            self.connected_lines.remove(line)
+
 
 class CheckBox(QFrame):
     state_changed = Signal(bool)

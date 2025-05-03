@@ -50,7 +50,7 @@ class Workspace(QGraphicsView):
         self.project = project
         self.is_panning = False
         self.last_mouse_pos = None
-        self.zoomed_out = False
+        self.zoomed_out = self.project["zoomed_out"]
         self.parents = None
         self.grid_color = QColor("#cccccc")
         self.line_color = QColor("#cccccc")
@@ -69,9 +69,37 @@ class Workspace(QGraphicsView):
         self.creating_checklist = False
         self.creator_line = None
 
-
+        self.initRoot()
         self.initChecklists()
+        self.assignRootChecklists()
         self.adjustChecklistsSize()
+
+    def initRoot(self):
+        self.root = {}
+        self.root["widget"] = QLabel(self.project["name"], alignment=Qt.AlignmentFlag.AlignCenter)
+        self.root["widget"].setObjectName("ProjectName")
+        self.root["widget"].adjustSize()
+
+        width = self.root["widget"].width()
+        new_width = ((width + self.grid_size - 1)//self.grid_size)*self.grid_size
+        self.root["widget"].resize(new_width, self.grid_size)
+        self.root["widget"].move(self.grid_size, self.workspace_height//100*self.grid_size)
+
+        proxy = QGraphicsProxyWidget()
+        proxy.setWidget(self.root["widget"])
+        self.scene.addItem(proxy)
+
+        proxy = QGraphicsProxyWidget()
+        self.root["creator"] = CreateChecklistButton(proxy=proxy, id=self.project["id"])
+        self.root["creator"].pressed.connect(self.checklistCreatorPressed)
+        self.root["creator"].released.connect(self.checklistCreatorReleased)
+        self.root["creator"].adjustSize()
+        self.root["creator"].move(
+            self.root["widget"].x() + self.root["widget"].width() - self.root["creator"].width()/2,
+            self.root["widget"].y() + self.root["widget"].height()/2 - self.root["creator"].height()/2,
+        )
+        proxy.setWidget(self.root["creator"])
+        self.scene.addItem(proxy)
 
     def initChecklists(self):
         self.checklists = {}
@@ -82,6 +110,16 @@ class Workspace(QGraphicsView):
             checklist["creator"] = self.createChecklistCreator(checklist["id"])
 
             self.checklists[checklist["id"]] = checklist
+
+    def assignRootChecklists(self):
+        for checklist_id in self.checklists:
+            checklist = self.checklists[checklist_id]
+            if checklist["parent_id"]:
+                continue
+
+            line = LineItem(self.root["creator"].proxy, checklist["widget"].proxy, self.lineColor)
+            self.scene.addItem(line)
+            checklist["widget"].addLine(line)
 
     def createChecklistWidget(self, checklist):
         position = {
@@ -98,6 +136,7 @@ class Workspace(QGraphicsView):
         widget.state_changed.connect(self.onChecklistStateChanged)
         widget.position_changed.connect(self.onChecklistPositionChanged)
         widget.checklist_moved.connect(self.onChecklistMoved)
+        widget.delete_checklist.connect(self.deleteChecklist)
 
         return widget
 
@@ -115,7 +154,7 @@ class Workspace(QGraphicsView):
     def findParents(self, checklists):
         parents = {}
         for checklist in checklists:
-            parent = checklist["parent"]
+            parent = checklist["parent_id"]
             if parent:
                 if parent in parents:
                     parents[parent].append(checklist["id"])
@@ -165,17 +204,17 @@ class Workspace(QGraphicsView):
             if not isinstance(item, GridBackground):
                 return
 
+            scene_pos = self.mapToScene(event.pos())  
             if self.zoomed_out:
                 self.resetTransform()
+                self.centerOn(scene_pos.x(), scene_pos.y())
                 self.zoomed_out = False
+                model.updateProjectZoomedOut(self.project["id"], False)
             else:
-                cursor_pos = event.pos()  # position of the cursor on the view
-                scene_pos = self.mapToScene(cursor_pos)  # convert to scene coordinates
-                
-                # Define the rect (2000x2000) centered around the cursor position
                 rect = QRectF(scene_pos.x() - 1250, scene_pos.y() - 1250, 2500, 2500)
                 self.fitInView(rect, Qt.KeepAspectRatio)
                 self.zoomed_out = True
+                model.updateProjectZoomedOut(self.project["id"], True)
         super().mouseDoubleClickEvent(event)
 
     def mousePressEvent(self, event):
@@ -213,6 +252,10 @@ class Workspace(QGraphicsView):
         if event.button() == Qt.LeftButton:
             self.is_panning = False
             self.viewport().setCursor(Qt.ArrowCursor)
+
+            view = self.mapToScene(self.viewport().rect()).boundingRect()
+            model.updateProjectView(self.project["id"], view.x() + view.width()/2, view.y() + view.height()/2)
+
         super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event):
@@ -230,6 +273,16 @@ class Workspace(QGraphicsView):
         if not hasattr(self, "creators_initialized"):
             self.creators_initialized = True
             self.updateCreatorsPosition()
+        if not hasattr(self, "transformations_restored"):
+            self.transformations_restored = True
+            if self.project["view_x"] is None or self.project["view_y"] is None:
+                self.centerOn(0, self.workspace_height/2 - self.root.height()/2)
+            else:
+                if not self.zoomed_out:
+                    self.centerOn(self.project["view_x"], self.project["view_y"])
+                else:
+                    rect = QRectF(self.project["view_x"] - 1250, self.project["view_y"] - 1250, 2500, 2500)
+                    self.fitInView(rect, Qt.KeepAspectRatio)
 
     def assignParents(self, parents):
         for parent_id in parents:
@@ -301,7 +354,7 @@ class Workspace(QGraphicsView):
             "title": title,
             "template_id": template_id,
             "project_id": self.project["id"],
-            "parent_id": self.creator_checklist_id,
+            "parent_id": self.creator_checklist_id if self.creator_checklist_id != self.project["id"] else None,
             "state": state,
             "position_x": 0,
             "position_y": 0
@@ -320,7 +373,19 @@ class Workspace(QGraphicsView):
 
         checklist["widget"].move(new_x, new_y)
         self.updateCreatorsPosition()
-        self.createParentChildLine(self.checklists[checklist["parent_id"]]["widget"], checklist["widget"])
+
+        if self.creator_checklist_id != self.project["id"]:
+            parent = checklist["parent_id"]
+            if parent in self.parents:
+                self.parents[parent].append(checklist["id"])
+            else:
+                self.parents[parent] = [ checklist["id"] ]
+
+            self.createParentChildLine(self.checklists[checklist["parent_id"]]["widget"], checklist["widget"])
+        else:
+            line = LineItem(self.root["creator"].proxy, checklist["widget"].proxy, self.lineColor)
+            self.scene.addItem(line)
+            checklist["widget"].addLine(line)
 
     def calculateSnapPosition(self, widget, x, y):
         cell_x = x // self.grid_size * self.grid_size
@@ -338,6 +403,35 @@ class Workspace(QGraphicsView):
         
         return new_x, new_y
 
+    def deleteChecklist(self, id):
+        if id in self.parents:
+            return
+
+        checklist = self.checklists[self.sender().id]
+
+        proxy = checklist["widget"].proxy
+        line = checklist["widget"].connected_lines[0]
+        checklist["widget"].removeLine(line)
+
+        if checklist["parent_id"]:
+            parent = self.checklists.get(checklist["parent_id"])
+            parent["widget"].removeLine(line)
+            self.parents[parent["id"]].remove(checklist["id"])
+            if not self.parents[parent["id"]]:
+                self.parents.pop(parent["id"], None)
+
+        self.scene.removeItem(line)
+        line.setParentItem(None)
+
+        self.scene.removeItem(proxy)
+        checklist["widget"].deleteLater()
+        proxy.deleteLater()
+
+        proxy = checklist["creator"].proxy
+        checklist["creator"].deleteLater()
+        proxy.deleteLater()
+        self.checklists.pop(checklist["id"], None)
+        model.deleteChecklist(checklist["id"])
 
 
 class GridBackground(QGraphicsItem):
