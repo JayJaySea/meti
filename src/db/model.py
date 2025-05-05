@@ -70,14 +70,9 @@ def getProjectChecklists(project_id):
     global db
     checklists = db.execute('select * from checklists where project_id = ?', (project_id,)).fetchall()
     for checklist in checklists:
-        checklist["checks"] = getChecks(checklist["template_id"])
-        checklist["title"] = getChecklistTemplate(checklist["template_id"])["title"]
+        checklist["checks"] = getChecks(checklist["id"])
 
     return checklists
-
-def getChecks(template_id):
-    global db
-    return db.execute('select content, position from checks where template_id = ? order by position', (template_id,)).fetchall()
 
 def getChecklistTemplate(id):
     global db
@@ -90,28 +85,21 @@ def createChecklistTemplate(title):
     db.commit()
     return id
 
-def createCheck(template_id, content, position):
-    global db
-    id = str(uuid.uuid4())
-    db.execute('insert into checks values (?, ?, ?, ?)', (id, template_id, content, position))
-    db.commit()
-    return id
-
 def createChecklist(checklist):
     global db
     id = str(uuid.uuid4())
-    db.execute('insert into checklists values (?, ?, ?, ?, ?, ?, ?)', (id, checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["state"], checklist["position_x"], checklist["position_y"]))
+    db.execute('insert into checklists values (?, ?, ?, ?, ?, ?, ?)', (id, checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["title"], checklist["position_x"], checklist["position_y"]))
     db.commit()
     return id
 
 def updateChecklist(checklist):
     global db
-    db.execute('update checklists set template_id = ?, project_id = ?, parent_id = ?, state = ?, position_x = ?, position_y = ? where id = ?', (checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["state"], checklist["position_x"], checklist["position_y"], id))
+    db.execute('update checklists set template_id = ?, project_id = ?, parent_id = ?, title = ?, position_x = ?, position_y = ? where id = ?', (checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["title"], checklist["position_x"], checklist["position_y"], id))
     db.commit()
 
-def updateChecklistState(id, state):
+def updateCheckState(id, state):
     global db
-    db.execute('update checklists set state = ? where id = ?', (state, id))
+    db.execute('update checks set state = ? where id = ?', (state, id))
     db.commit()
 
 def updateChecklistPosition(id, new_x, new_y):
@@ -122,4 +110,27 @@ def updateChecklistPosition(id, new_x, new_y):
 def deleteChecklist(id):
     global db
     db.execute('delete from checklists where id = ?', (id,))
+    db.execute('delete from checks where checklist_id = ?', (id,))
+    db.commit()
+
+def getChecks(checklist_id):
+    global db
+    return db.execute('select * from checks where checklist_id = ? order by position', (checklist_id,)).fetchall()
+
+def createCheck(checklist_id, content, state, position):
+    global db
+    id = str(uuid.uuid4())
+    db.execute('insert into checks values (?, ?, ?, ?, ?)', (id, checklist_id, content, state, position))
+    db.commit()
+    return id
+
+def updateCheck(id, content, state, position):
+    global db
+    db.execute('update checks set content = ?, state = ?, position = ? where id = ?', (content, state, position, id))
+    db.commit()
+    return id
+
+def deleteCheck(id):
+    global db
+    db.execute('delete from checks where id = ?', (id,))
     db.commit()

@@ -91,7 +91,7 @@ class Project(QFrame):
 
     def createProject(self):
         project_name = self.project_name_input.text()
-        is_template = self.template_checkbox.active
+        is_template = True if self.template_checkbox.state else False
         model.createProject(project_name, is_template)
         self.create_project_dialog.hide()
         self.project_created.emit()

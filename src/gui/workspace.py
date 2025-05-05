@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath
-from PySide6.QtCore import Qt, QRect, Property, QRectF, QPointF
+from PySide6.QtCore import Qt, QRect, Property, QRectF, QPointF, QTimer
 from PySide6.QtWidgets import (
     QGraphicsView,
     QGraphicsItem,
@@ -90,6 +90,7 @@ class Workspace(QGraphicsView):
         self.scene.addItem(proxy)
 
         proxy = QGraphicsProxyWidget()
+        proxy.setZValue(100)
         self.root["creator"] = CreateChecklistButton(proxy=proxy, id=self.project["id"])
         self.root["creator"].pressed.connect(self.checklistCreatorPressed)
         self.root["creator"].released.connect(self.checklistCreatorReleased)
@@ -130,15 +131,22 @@ class Workspace(QGraphicsView):
         proxy = QGraphicsProxyWidget()
         self.scene.addItem(proxy)
 
-        widget = Checklist(checklist["title"], checklist["checks"], position, checklist["state"], self.grid_size, proxy=proxy, id=checklist["id"])
+        widget = Checklist(checklist["title"], checklist["checks"], position, self.grid_size, proxy=proxy, id=checklist["id"])
         proxy.setWidget(widget)
 
-        widget.state_changed.connect(self.onChecklistStateChanged)
         widget.position_changed.connect(self.onChecklistPositionChanged)
         widget.checklist_moved.connect(self.onChecklistMoved)
         widget.delete_checklist.connect(self.deleteChecklist)
+        widget.edit_checklist.connect(self.showChecklistEditDialog)
 
         return widget
+
+    def showChecklistEditDialog(self, id):
+        checklist = self.checklists[id]
+        self.checklist_editor.setId(id)
+        self.checklist_editor.setChecklistName(checklist["title"])
+        self.checklist_editor.setChecks(checklist["checks"])
+        self.checklist_editor_dialog.show()
 
     def createChecklistCreator(self, id):
         proxy = QGraphicsProxyWidget()
@@ -165,15 +173,18 @@ class Workspace(QGraphicsView):
 
     def adjustChecklistsSize(self):
         for checklist_id in self.checklists:
-            checklist = self.checklists[checklist_id]["widget"]
-            checklist.adjustSize()
+            checklist = self.checklists[checklist_id]
+            self.adjustChecklistSize(checklist)
 
-            width = checklist.width()
-            new_width = ((width + self.grid_size - 1)//self.grid_size)*self.grid_size
+    def adjustChecklistSize(self, checklist):
+        checklist["widget"].adjustSize()
 
-            height = checklist.height()
-            new_height = ((height + self.grid_size - 1)//self.grid_size)*self.grid_size
-            checklist.setMinimumSize(new_width, new_height)
+        width = checklist["widget"].width()
+        new_width = ((width + self.grid_size - 1)//self.grid_size)*self.grid_size
+
+        height = checklist["widget"].height()
+        new_height = ((height + self.grid_size - 1)//self.grid_size)*self.grid_size
+        checklist["widget"].resize(new_width, new_height)
 
     def getGridColor(self):
         return self.grid_color
@@ -276,7 +287,7 @@ class Workspace(QGraphicsView):
         if not hasattr(self, "transformations_restored"):
             self.transformations_restored = True
             if self.project["view_x"] is None or self.project["view_y"] is None:
-                self.centerOn(0, self.workspace_height/2 - self.root.height()/2)
+                self.centerOn(0, self.workspace_height/2 - self.root["widget"].height()/2)
             else:
                 if not self.zoomed_out:
                     self.centerOn(self.project["view_x"], self.project["view_y"])
@@ -301,12 +312,12 @@ class Workspace(QGraphicsView):
 
     def updateCreatorsPosition(self):
         for checklist in self.checklists.values():
-            new_x = checklist["widget"].x() + checklist["widget"].width() - checklist["creator"].width()/2
-            new_y = checklist["widget"].y() + checklist["widget"].height()/2 - checklist["creator"].height()/2
-            checklist["creator"].move(new_x, new_y)
+            self.updateCreatorPosition(checklist)
 
-    def onChecklistStateChanged(self, state):
-        model.updateChecklistState(self.sender().id, state)
+    def updateCreatorPosition(self, checklist):
+        new_x = checklist["widget"].x() + checklist["widget"].width() - checklist["creator"].width()/2
+        new_y = checklist["widget"].y() + checklist["widget"].height()/2 - checklist["creator"].height()/2
+        checklist["creator"].move(new_x, new_y)
 
     def onChecklistMoved(self):
         self.updateCreatorsPosition()
@@ -316,51 +327,82 @@ class Workspace(QGraphicsView):
         self.updateCreatorsPosition()
 
     def checklistCreatorPressed(self, event):
-        self.creator_checklist_id = self.sender().id
-        self.creating_checklist = True
-        self.creator_line = LineItem(self.sender().proxy, self.create_checklist_destination.proxy, self.lineColor)
-        self.creator_line.hide()
-        self.scene.addItem(self.creator_line)
+        if event.button() == Qt.LeftButton:
+            self.checklist_editor.setId(None)
+            self.creator_checklist_id = self.sender().id
+            self.creating_checklist = True
+            self.creator_line = LineItem(self.sender().proxy, self.create_checklist_destination.proxy, self.lineColor)
+            self.creator_line.hide()
+            self.scene.addItem(self.creator_line)
 
     def checklistCreatorReleased(self, event):
-        self.creating_checklist = False
-        self.scene.removeItem(self.creator_line)
-        self.creator_line = None
-        self.create_checklist_destination.hide()
-        self.checklist_editor_dialog.show()
+        if event.button() == Qt.LeftButton:
+            self.creating_checklist = False
+            self.scene.removeItem(self.creator_line)
+            self.creator_line = None
+            self.create_checklist_destination.hide()
+            self.checklist_editor_dialog.show()
         
     def resizeEvent(self, event):
         self.checklist_editor_dialog.resizeEvent(event)
 
-    def checklistReady(self, title, items, id):
+    def checklistReady(self, title, checks, id):
         if id: 
-            self.updateChecklist(title, items, id)
-            return
+            self.updateChecklist(title, checks, id)
+        else:
+            self.createChecklist(title, checks)
 
-        self.createChecklist(title, items)
-
-    def updateChecklist(self, title, items, id):
-        pass
-
-    def createChecklist(self, title, items):
+    def updateChecklist(self, title, checks, id):
         self.checklist_editor_dialog.hide()
-        state = '0' * len(items)
-        template_id = model.createChecklistTemplate(title)
-        for item in items:
-            id = model.createCheck(template_id, item["content"], item["position"])
-            item["id"] = id
+        self.checklist_editor.setChecklistName(None)
+        self.checklist_editor.setChecks(None)
+        checklist = self.checklists[id]
+        checklist["title"] = title
+
+        check_ids = {check.get("id") for check in checks}
+        deleted = [check for check in checklist["checks"] if check.get("id") not in check_ids]
+        for check in deleted:
+            model.deleteCheck(check["id"])
+
+        for check in checks:
+            if check.get("id"):
+                model.updateCheck(check["id"], check["content"], check["state"], check["position"])
+            else:
+                id = model.createCheck(checklist["id"], check["content"], 0, check["position"])
+                check["id"] = id
+
+        checklist["checks"] = checks
+
+        checklist["widget"].setTitle(title)
+        checklist["widget"].setChecks(checks)
+
+        QTimer.singleShot(0, lambda: self.resizeChecklistAndUpdate(checklist))
+
+    def resizeChecklistAndUpdate(self, checklist):
+        self.adjustChecklistSize(checklist)
+        checklist["widget"].updateLines()
+        self.updateCreatorPosition(checklist)
+
+    def createChecklist(self, title, checks):
+        self.checklist_editor_dialog.hide()
+        self.checklist_editor.setChecklistName(None)
+        self.checklist_editor.setChecks(None)
 
         checklist = {
-            "title": title,
-            "template_id": template_id,
+            "template_id": None,
             "project_id": self.project["id"],
             "parent_id": self.creator_checklist_id if self.creator_checklist_id != self.project["id"] else None,
-            "state": state,
+            "title": title,
             "position_x": 0,
             "position_y": 0
         }
-        checklist["checks"] = items
         checklist["id"] = model.createChecklist(checklist)
+
+        for check in checks:
+            check["id"] = model.createCheck(checklist["id"], check["content"], check["state"], check["position"])
+            check["checklist_id"] = checklist["id"]
+
+        checklist["checks"] = checks
         checklist["widget"] = self.createChecklistWidget(checklist)
         checklist["creator"] = self.createChecklistCreator(checklist["id"])
 

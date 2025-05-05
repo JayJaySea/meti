@@ -21,14 +21,15 @@ from PySide6.QtWidgets import (
 )
 
 from gui.widgets.button import DeleteButton, UpDownButton, AddButton, BackButton, AcceptButton, EditButton
+from db import model
 
 class Checklist(QFrame):
-    state_changed = Signal(str)
     checklist_moved = Signal()
     position_changed = Signal(int, int)
     delete_checklist = Signal(str)
+    edit_checklist = Signal(str)
 
-    def __init__(self, title, items, position, state, grid_size, proxy=None, parent=None, id=None):
+    def __init__(self, title, items, position, grid_size, proxy=None, parent=None, id=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -36,7 +37,6 @@ class Checklist(QFrame):
         self.grabbed_pos = None
         self.title = title
         self.position = position
-        self.state = state
         self.grid_size = grid_size
         self.parent_checklist = None
         self.connected_lines = []
@@ -53,34 +53,33 @@ class Checklist(QFrame):
 
     def initHead(self):
         layout = QHBoxLayout()
-        title = QLabel(self.title)
-        title.setObjectName("ChecklistTitle")
-        layout.addWidget(title, stretch=1)
+        self.title = QLabel(self.title)
+        self.title.setObjectName("ChecklistTitle")
+        layout.addWidget(self.title, stretch=1)
         placeholder = QWidget()
         placeholder.setFixedSize(50, 50)
         layout.addWidget(placeholder)
-        layout.addWidget(EditButton(lambda: print("TODO!")))
+        layout.addWidget(EditButton(lambda: self.edit_checklist.emit(self.id)))
         layout.addWidget(DeleteButton(lambda: self.delete_checklist.emit(self.id)))
 
         self.head = QWidget()
         self.head.setObjectName("ChecklistHead")
         self.head.setLayout(layout)
 
-    def initBody(self, items):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 5)
-        layout.setSpacing(0)
-        self.items = {}
-        for item in items:
-            checkbox = CheckBox(item["content"], True if self.state[item["position"]] == "1" else False)
-            checkbox.state_changed.connect(self.onCheckboxStateChanged)
-            self.items[checkbox] = item
+    def initBody(self, checks):
+        self.body_layout = QVBoxLayout()
+        self.body_layout.setContentsMargins(0, 0, 0, 5)
+        self.body_layout.setSpacing(0)
+        self.checks = {}
+        for check in checks:
+            checkbox = CheckBox(check["content"], check["state"], id=check["id"])
+            self.checks[checkbox] = check
 
-            layout.addWidget(checkbox)
+            self.body_layout.addWidget(checkbox)
 
         self.body = QWidget()
         self.body.setObjectName("ChecklistBody")
-        self.body.setLayout(layout)
+        self.body.setLayout(self.body_layout)
 
     def initLayout(self):
         layout = QVBoxLayout() 
@@ -118,8 +117,7 @@ class Checklist(QFrame):
         new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
         new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
         self.move(new_x, new_y)
-        for line in self.connected_lines:
-            line.updatePath()
+        self.updateLines()
 
         self.position_changed.emit(new_x, new_y)
 
@@ -135,16 +133,7 @@ class Checklist(QFrame):
         new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
         self.move(new_x, new_y)
         self.checklist_moved.emit()
-        for line in self.connected_lines:
-            line.updatePath()
-
-    def onCheckboxStateChanged(self, state):
-        item = self.items.get(self.sender())
-        if not item:
-            return
-
-        self.state = self.updateState(self.state, item["position"], "1" if state == True else "0")
-        self.state_changed.emit(self.state)
+        self.updateLines()
 
     def updateState(self, state_str, index, new_value):
         state_list = list(state_str)
@@ -155,22 +144,44 @@ class Checklist(QFrame):
         if line in self.connected_lines:
             self.connected_lines.remove(line)
 
+    def updateLines(self):
+        for line in self.connected_lines:
+            line.updatePath()
+
+    def setTitle(self, title):
+        self.title.setText(title)
+
+    def setChecks(self, checks):
+        while self.body_layout.count():
+            widget = self.body_layout.takeAt(0).widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        self.checks = {}
+        for check in checks:
+            checkbox = CheckBox(check["content"], check["state"], id=check["id"])
+            self.checks[checkbox] = check
+            self.body_layout.addWidget(checkbox)
+
+        self.body_layout.activate()
+        self.repaint()
+
 
 class CheckBox(QFrame):
-    state_changed = Signal(bool)
-
-    def __init__(self, label, active, parent=None):
+    def __init__(self, label, state, id=None, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
-        self.label = label
         self.setObjectName("CheckBoxWidget")
 
-        self.active = active
+        self.label = label
+        self.state = state
         self.hovering = False
+        self.id = id
 
         self.initLayout()
-        if self.active:
+        if self.state:
             self.activeStyle()
 
     def initLayout(self):
@@ -197,24 +208,27 @@ class CheckBox(QFrame):
     def enterEvent(self, event):
         self.setCursor(Qt.PointingHandCursor)
 
-        if not self.active:
+        if not self.state:
             self.hoverStyle()
         event.accept()
 
     def leaveEvent(self, event):
         self.setCursor(Qt.ArrowCursor)
-        if not self.active:
+        if not self.state:
             self.defaultStyle()
         event.accept()
 
     def mousePressEvent(self, event):
-        self.active = not self.active
-        if self.active:
-            self.state_changed.emit(True)
+        self.state = 1 if not self.state else 0
+        if self.state:
             self.activeStyle()
+            if self.id:
+                model.updateCheckState(self.id, 1)
         else:
-            self.state_changed.emit(False)
             self.hoverStyle()
+            if self.id:
+                model.updateCheckState(self.id, 0)
+
         event.accept()
 
     def mouseReleaseEvent(self, event):
@@ -231,10 +245,10 @@ class CheckBox(QFrame):
             if self.hovering:
                 self.hovering = False
 
-        if not self.active:
+        if not self.state:
             if not self.hovering:
                 self.defaultStyle()
-            elif self.active:
+            elif self.state:
                 self.activeStyle()
 
         event.accept()
@@ -270,6 +284,7 @@ class CreateChecklistButton(QFrame):
 
         self.proxy = proxy
         self.id = id
+        self.grabbed = False
         self.circle = QFrame(self)
         self.circle.setObjectName("CreateChecklistButton")
         self.circle.resize(14, 14)
@@ -298,13 +313,16 @@ class CreateChecklistButton(QFrame):
         self.refreshStyle()
 
     def mousePressEvent(self, event):
-        self.proxy.setCursor(Qt.ArrowCursor)
-        self.inner_circle.show()
-        self.pressed.emit(event)
+        if event.button() == Qt.LeftButton:
+            self.proxy.setCursor(Qt.ArrowCursor)
+            self.inner_circle.show()
+            self.pressed.emit(event)
 
     def mouseReleaseEvent(self, event):
-        self.inner_circle.hide()
-        self.released.emit(event)
+        if event.button() == Qt.LeftButton:
+            self.inner_circle.hide()
+            self.released.emit(event)
+            self.grabbed = False
 
     def refreshStyle(self):
         self.circle.style().unpolish(self.circle)
@@ -327,11 +345,14 @@ class ChecklistEditor(QFrame):
     def __init__(self, title=None, items=None, id=None, parent=None):
         super().__init__(parent)
         self.title = title
-        self.items = items
+        self.checks = items
         self.id = id
 
         self.setObjectName("Dialog")
         self.initLayout()
+    
+    def setId(self, id):
+        self.id = id
 
     def initLayout(self):
         input_label = QLabel("CHECKLIST NAME")
@@ -342,11 +363,11 @@ class ChecklistEditor(QFrame):
         items_label = QLabel("ITEMS")
         items_label.setObjectName("TextInputLabel")
         items_label.setAlignment(Qt.AlignCenter)
-        self.item_editor = ItemEditor(self.items)
+        self.item_editor = ItemEditor(self.checks)
         buttons = QHBoxLayout()
         buttons.addWidget(BackButton(lambda: self.parent().hide()))
         buttons.addStretch()
-        buttons.addWidget(AcceptButton(lambda: self.createChecklist()))
+        buttons.addWidget(AcceptButton(lambda: self.checklistReady()))
 
         layout = QVBoxLayout()
 
@@ -359,7 +380,7 @@ class ChecklistEditor(QFrame):
 
         self.setLayout(layout)
     
-    def createChecklist(self):
+    def checklistReady(self):
         title = self.checklist_name_input.text()
         if not title or not self.item_editor.itemsFilled():
             return
@@ -367,12 +388,17 @@ class ChecklistEditor(QFrame):
         items = self.item_editor.getItems()
         self.checklist_ready.emit(title, items, self.id)
 
+    def setChecklistName(self, text):
+        self.checklist_name_input.setText(text)
+
+    def setChecks(self, checks):
+        self.item_editor.setChecks(checks)
 
 
 class ItemEditor(QScrollArea):
     def __init__(self, items=None, parent=None):
         super().__init__(parent)
-        self.items = items if items else []
+        self.checks = items if items else []
         self.dragging = False
         self.setFixedSize(500, 300)
 
@@ -384,7 +410,20 @@ class ItemEditor(QScrollArea):
 
     def initLayout(self):
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
+        self.layout.addWidget(self.createAddButton())
+        self.layout.addStretch()
+
+        for item in self.checks:
+            self.addItem(item)
+
+        container = QFrame()
+        container.setLayout(self.layout)
+
+        self.setWidget(container)
+
+    def createAddButton(self):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 5, 0, 5)
         layout.setSpacing(0)
@@ -395,16 +434,7 @@ class ItemEditor(QScrollArea):
         add_new = QFrame()
         add_new.setLayout(layout)
 
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(add_new)
-        self.layout.addStretch()
-        for item in self.items:
-            self.addItem(item)
-
-        container = QFrame()
-        container.setLayout(self.layout)
-
-        self.setWidget(container)
+        return add_new
 
     def addItem(self, item=None):
         if not item:
@@ -417,7 +447,7 @@ class ItemEditor(QScrollArea):
         self.layout.insertWidget(self.layout.count() - 2, item["widget"])
         
         if not item.get("id"):
-            self.items.append(item)
+            self.checks.append(item)
 
     def itemGrabbed(self):
         self.dragging = True
@@ -461,32 +491,48 @@ class ItemEditor(QScrollArea):
         return True
 
     def getItems(self):
-        items = []
+        checks = []
         for i in range(self.layout.count()):
             widget = self.layout.itemAt(i).widget()
             if not isinstance(widget, EditableItem):
                 continue
 
             if not widget.id:
-                items.append({
+                checks.append({
                     "content": widget.content,
+                    "state": 0,
                     "position": i
                 })
                 continue
 
-            for item in self.items:
-                if not widget.id == item["id"]:
+            for check in self.checks:
+                if not widget.id == check["id"]:
                     continue
 
-                items.append({
+                checks.append({
                     "id": widget.id,
-                    "template_id": item["template_id"],
+                    "checklist_id": check["checklist_id"],
                     "content": widget.content,
+                    "state": 0,
                     "position": i
                 })
                 break
 
-        return items
+        return checks
+
+    def setChecks(self, checks):
+        while self.layout.count():
+            widget = self.layout.takeAt(0).widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        self.checks = checks if checks else []
+        self.layout.addWidget(self.createAddButton())
+        self.layout.addStretch()
+
+        for check in self.checks:
+            self.addItem(check)
 
 class EditableItem(QFrame):
     grabbed = Signal()
