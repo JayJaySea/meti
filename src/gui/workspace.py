@@ -40,12 +40,24 @@ class Workspace(QGraphicsView):
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setSceneRect(0, 0, self.workspace_width, self.workspace_height)
-        self.setRenderHints(self.renderHints() | QPainter.Antialiasing)
 
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setViewportUpdateMode(QGraphicsView.MinimalViewportUpdate)
+        self.setOptimizationFlags(QGraphicsView.DontAdjustForAntialiasing | 
+                                  QGraphicsView.DontSavePainterState)
+        self.setRenderHint(QPainter.Antialiasing, True)  # Enable only when needed
+        
+        # For high-DPI displays
+        self.setRenderHint(QPainter.SmoothPixmapTransform, False)
+        
+        # Scroll settings for better performance
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
+        # Viewport settings
+        self.setViewportUpdateMode(QGraphicsView.SmartViewportUpdate)
+        self.setCacheMode(QGraphicsView.CacheBackground)
 
         self.project = project
         self.is_panning = False
@@ -235,6 +247,7 @@ class Workspace(QGraphicsView):
         
             if item is None or isinstance(item, GridBackground):
                 self.is_panning = True
+                self.setRenderHint(QPainter.Antialiasing, False)
                 self.last_mouse_pos = event.pos()
                 self.viewport().setCursor(Qt.ClosedHandCursor)
             else:
@@ -246,6 +259,8 @@ class Workspace(QGraphicsView):
             delta = event.pos() - self.last_mouse_pos
             self.last_mouse_pos = event.pos()
             self.translate(delta.x() * -1, delta.y() * -1)
+            
+            event.accept()
         if self.creating_checklist:
             if not self.creator_line.isVisible():
                 self.creator_line.show()
@@ -262,6 +277,7 @@ class Workspace(QGraphicsView):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.is_panning = False
+            self.setRenderHint(QPainter.Antialiasing, True)
             self.viewport().setCursor(Qt.ArrowCursor)
 
             view = self.mapToScene(self.viewport().rect()).boundingRect()
