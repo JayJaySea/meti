@@ -165,6 +165,19 @@ IconButton {
     color: $foreground;
 }
 
+#ProjectNameAlt {
+    background-color: $background;
+    font-family: "Orbitron", Arial, sans-serif;
+    text-transform: uppercase;
+    font-weight: normal;
+    font-size: 25px;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    border-color: $purple;
+    color: $foreground;
+}
+
 #TextInputLabel {
     font-family: "Orbitron", Arial, sans-serif;
     font-weight: normal;
@@ -173,6 +186,10 @@ IconButton {
 
 #TextInputLabel {
     font-size: 18px;
+}
+
+#BorderlessContainer {
+    background-color: $background;
 }
 
 #Container {
@@ -189,6 +206,19 @@ IconButton {
     border-style: solid;
     border-width: 2px;
     border-radius: 5px;
+}
+
+#TabDialog {
+    background-color: $background;
+    border-color: $foreground;
+    border-style: solid;
+    border-width: 2px;
+    // border-width: 0px 2px 2px 2px;
+    border-radius: 5px;
+    border-top-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 
 #TransparentContainer {
@@ -250,4 +280,46 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: none;
+}
+
+QTabWidget::tab-bar {
+    min-width: 999999px;
+    background-color: $background;
+}
+
+QTabBar::tab:selected {
+    background-color: $foreground;
+    border-radius: 10px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+    color: $background;
+}
+
+QTabBar::tab {
+    font-family: "Orbitron", Arial, sans-serif;
+    text-transform: uppercase;
+    font-weight: normal;
+    font-size: 25px;
+    background-color: $background;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+#SubTabBar::tab:selected {
+    background-color: $foreground;
+    border-radius: 0px;
+    color: $background;
+}
+
+#SubTabBar::tab {
+    font-family: "Orbitron", Arial, sans-serif;
+    text-transform: uppercase;
+    font-weight: normal;
+    font-size: 25px;
+    border-radius: 0px;
+    background-color: $background;
 }

@@ -341,6 +341,7 @@ class CreateChecklistDestination(QFrame):
 
 class ChecklistEditor(QFrame):
     checklist_ready = Signal(str, list, str)
+    back = Signal()
 
     def __init__(self, title=None, items=None, id=None, parent=None):
         super().__init__(parent)
@@ -365,7 +366,7 @@ class ChecklistEditor(QFrame):
         items_label.setAlignment(Qt.AlignCenter)
         self.item_editor = ItemEditor(self.checks)
         buttons = QHBoxLayout()
-        buttons.addWidget(BackButton(lambda: self.parent().hide()))
+        buttons.addWidget(BackButton(lambda: self.back.emit()))
         buttons.addStretch()
         buttons.addWidget(AcceptButton(lambda: self.checklistReady()))
 
@@ -545,7 +546,6 @@ class EditableItem(QFrame):
         self.id = id
 
         self.setMaximumHeight(40)
-        self.setMaximumHeight(300)
         self.setMouseTracking(True)
 
         self.initLayout()

@@ -77,6 +77,7 @@ class Workspace(QGraphicsView):
 
         self.checklist_editor = ChecklistEditor()
         self.checklist_editor.checklist_ready.connect(self.checklistReady)
+        self.checklist_editor.back.connect(lambda: self.checklist_editor_dialog.hide())
         self.checklist_editor_dialog = DialogTemplate(self.checklist_editor, self.parent().window())
         self.creating_checklist = False
         self.creator_line = None

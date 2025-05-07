@@ -45,7 +45,7 @@ def createProject(name, is_template):
 
 def getProjects():
     global db
-    return db.execute('select * from projects order by last_accessed desc ;').fetchall()
+    return db.execute('select * from projects where is_template != true order by last_accessed desc;').fetchall()
 
 def getLastAccessedProject():
     global db
@@ -73,6 +73,18 @@ def getProjectChecklists(project_id):
         checklist["checks"] = getChecks(checklist["id"])
 
     return checklists
+
+def getProjectTemplates():
+    global db
+    return db.execute('select * from projects where is_template = true order by last_accessed desc;').fetchall()
+
+def getChecklistTemplates():
+    global db
+    templates = db.execute('select * from checklist_templates').fetchall()
+    for template in templates:
+        template["checks"] = getTemplateChecks(template["id"])
+
+    return templates
 
 def getChecklistTemplate(id):
     global db
@@ -131,6 +143,33 @@ def updateCheck(id, content, state, position):
     return id
 
 def deleteCheck(id):
+    global db
+    db.execute('delete from checks where id = ?', (id,))
+    db.commit()
+
+def createTemplateCheck(checklist_id, content, position):
+    global db
+    id = str(uuid.uuid4())
+    db.execute('insert into template_checks values (?, ?, ?, ?)', (id, checklist_id, content, position))
+    db.commit()
+    return id
+
+def getTemplateChecks(template_id):
+    global db
+    return db.execute('select * from template_checks where template_id = ? order by position', (template_id,)).fetchall()
+
+def updateTemplateChecklist(id, title):
+    global db
+    db.execute('update checklist_templates set title = ? where id = ?', (title, id))
+    db.commit()
+
+def updateTemplateCheck(id, content, position):
+    global db
+    db.execute('update template_checks set content = ?, position = ? where id = ?', (content, position, id))
+    db.commit()
+    return id
+
+def deleteTemplateCheck(id):
     global db
     db.execute('delete from checks where id = ?', (id,))
     db.commit()
