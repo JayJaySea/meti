@@ -149,3 +149,15 @@ class UpDownButton(IconButton):
 class EditButton(IconButton):
     def __init__(self, callback, size="large", parent=None, id=None):
         super().__init__("EditButton", "edit", callback, size=size, parent=parent, id=id)
+
+class PushButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("PushButton", "push", callback, size=size, parent=parent, id=id)
+
+class PullButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("PullButton", "pull", callback, size=size, parent=parent, id=id)
+
+class DuplicateButton(IconButton):
+    def __init__(self, callback, size="large", parent=None, id=None):
+        super().__init__("DuplicateButton", "duplicate", callback, size=size, parent=parent, id=id)

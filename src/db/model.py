@@ -33,13 +33,12 @@ def decryptDatabase(password):
         getProjects()
         return True
     except BaseException as x:
-        print(x)
         return False
 
-def createProject(name, is_template):
+def createProject(title, is_template):
     global db
     id = str(uuid.uuid4())
-    db.execute('insert into projects values (?, ?, ?, ?, ?, ?, ?)', (id, name, is_template, int(time.time()), None, None, False))
+    db.execute('insert into projects values (?, ?, ?, ?, ?, ?, ?)', (id, title, is_template, int(time.time()), None, None, False))
     db.commit()
     return id
 
@@ -97,6 +96,10 @@ def createChecklistTemplate(title):
     db.commit()
     return id
 
+def getChecklist(id):
+    global db
+    return db.execute('select * from checklists where id = ?', (id,)).fetchone()
+
 def createChecklist(checklist):
     global db
     id = str(uuid.uuid4())
@@ -109,14 +112,19 @@ def updateChecklist(checklist):
     db.execute('update checklists set template_id = ?, project_id = ?, parent_id = ?, title = ?, position_x = ?, position_y = ? where id = ?', (checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["title"], checklist["position_x"], checklist["position_y"], id))
     db.commit()
 
-def updateCheckState(id, state):
-    global db
-    db.execute('update checks set state = ? where id = ?', (state, id))
-    db.commit()
-
 def updateChecklistPosition(id, new_x, new_y):
     global db
     db.execute('update checklists set position_x = ?, position_y = ? where id = ?', (new_x, new_y, id))
+    db.commit()
+
+def updateChecklistTitle(id, title):
+    global db
+    db.execute('update checklists set title = ? where id = ?', (title, id))
+    db.commit()
+
+def setTemplateForChecklist(id, template_id):
+    global db
+    db.execute('update checklists set template_id = ? where id = ?', (template_id, id))
     db.commit()
 
 def deleteChecklist(id):
@@ -128,6 +136,11 @@ def deleteChecklist(id):
 def getChecks(checklist_id):
     global db
     return db.execute('select * from checks where checklist_id = ? order by position', (checklist_id,)).fetchall()
+
+def updateCheckState(id, state):
+    global db
+    db.execute('update checks set state = ? where id = ?', (state, id))
+    db.commit()
 
 def createCheck(checklist_id, content, state, position):
     global db
@@ -147,10 +160,10 @@ def deleteCheck(id):
     db.execute('delete from checks where id = ?', (id,))
     db.commit()
 
-def createTemplateCheck(checklist_id, content, position):
+def createTemplateCheck(template_id, content, position):
     global db
     id = str(uuid.uuid4())
-    db.execute('insert into template_checks values (?, ?, ?, ?)', (id, checklist_id, content, position))
+    db.execute('insert into template_checks values (?, ?, ?, ?)', (id, template_id, content, position))
     db.commit()
     return id
 
@@ -171,5 +184,10 @@ def updateTemplateCheck(id, content, position):
 
 def deleteTemplateCheck(id):
     global db
-    db.execute('delete from checks where id = ?', (id,))
+    db.execute('delete from template_checks where id = ?', (id,))
+    db.commit()
+
+def deleteTemplateChecks(template_id):
+    global db
+    db.execute('delete from template_checks where template_id = ?', (template_id,))
     db.commit()

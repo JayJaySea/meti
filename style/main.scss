@@ -146,6 +146,42 @@ IconButton {
     background-color: $yellow;
 }
 
+#PullButton {
+    border-color: $yellow;
+}
+
+#PullButton[hover=true] {
+    background-color: $background;
+}
+
+#PullButton[active=true] {
+    background-color: $yellow;
+}
+
+#DuplicateButton {
+    border-color: $purple;
+}
+
+#DuplicateButton[hover=true] {
+    background-color: $background;
+}
+
+#DuplicateButton[active=true] {
+    background-color: $purple;
+}
+
+#PushButton {
+    border-color: $purple;
+}
+
+#PushButton[hover=true] {
+    background-color: $background;
+}
+
+#PushButton[active=true] {
+    background-color: $purple;
+}
+
 #Workspace {
     background-color: $background;
     qproperty-gridColor: $background-light;
@@ -322,4 +358,22 @@ QTabBar::tab {
     font-size: 25px;
     border-radius: 0px;
     background-color: $background;
+}
+
+#PickerItem {
+    background-color: $background;
+    font-family: "Orbitron", Arial, sans-serif;
+    text-transform: uppercase;
+    font-weight: normal;
+    font-size: 25px;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    border-color: $purple;
+    color: $foreground;
+}
+
+#PickerItem:checked {
+    background-color: $purple;
+    color: $background;
 }

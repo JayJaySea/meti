@@ -42,6 +42,15 @@
     font-size: 18px;
 }
 
+#CheckBoxLabel {
+    text-decoration: none;
+}
+
+#CheckBoxLabel[strikethrough=true] {
+    text-decoration: line-through;
+    color: $foreground-darker;
+}
+
 #CheckBoxIndicator {
     background-color: $background-dark;
     border-radius: 1px;

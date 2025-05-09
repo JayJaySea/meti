@@ -77,8 +77,9 @@ class Workspace(QGraphicsView):
 
         self.checklist_editor = ChecklistEditor()
         self.checklist_editor.checklist_ready.connect(self.checklistReady)
-        self.checklist_editor.back.connect(lambda: self.checklist_editor_dialog.hide())
+        self.checklist_editor.back.connect(self.resetEditor)
         self.checklist_editor_dialog = DialogTemplate(self.checklist_editor, self.parent().window())
+        self.checklist_editor_dialog.pressed_outside.connect(self.resetEditor)
         self.creating_checklist = False
         self.creator_line = None
 
@@ -89,7 +90,7 @@ class Workspace(QGraphicsView):
 
     def initRoot(self):
         self.root = {}
-        self.root["widget"] = QLabel(self.project["name"], alignment=Qt.AlignmentFlag.AlignCenter)
+        self.root["widget"] = QLabel(self.project["title"], alignment=Qt.AlignmentFlag.AlignCenter)
         self.root["widget"].setObjectName("ProjectName")
         self.root["widget"].adjustSize()
 
@@ -363,18 +364,21 @@ class Workspace(QGraphicsView):
     def resizeEvent(self, event):
         self.checklist_editor_dialog.resizeEvent(event)
 
-    def checklistReady(self, title, checks, id):
+    def resetEditor(self):
+        self.checklist_editor_dialog.hide()
+        self.checklist_editor.reset()
+
+    def checklistReady(self, title, checks, id, template_id=None):
+        self.resetEditor()
         if id: 
             self.updateChecklist(title, checks, id)
         else:
-            self.createChecklist(title, checks)
+            self.createChecklist(title, checks, template_id)
 
     def updateChecklist(self, title, checks, id):
-        self.checklist_editor_dialog.hide()
-        self.checklist_editor.setChecklistName(None)
-        self.checklist_editor.setChecks(None)
         checklist = self.checklists[id]
         checklist["title"] = title
+        model.updateChecklistTitle(id, title)
 
         check_ids = {check.get("id") for check in checks}
         deleted = [check for check in checklist["checks"] if check.get("id") not in check_ids]
@@ -387,11 +391,13 @@ class Workspace(QGraphicsView):
             else:
                 id = model.createCheck(checklist["id"], check["content"], 0, check["position"])
                 check["id"] = id
+                check["checklist_id"] = checklist["id"]
 
         checklist["checks"] = checks
 
         checklist["widget"].setTitle(title)
         checklist["widget"].setChecks(checks)
+
 
         QTimer.singleShot(0, lambda: self.resizeChecklistAndUpdate(checklist))
 
@@ -400,13 +406,9 @@ class Workspace(QGraphicsView):
         checklist["widget"].updateLines()
         self.updateCreatorPosition(checklist)
 
-    def createChecklist(self, title, checks):
-        self.checklist_editor_dialog.hide()
-        self.checklist_editor.setChecklistName(None)
-        self.checklist_editor.setChecks(None)
-
+    def createChecklist(self, title, checks, template_id=None):
         checklist = {
-            "template_id": None,
+            "template_id": template_id,
             "project_id": self.project["id"],
             "parent_id": self.creator_checklist_id if self.creator_checklist_id != self.project["id"] else None,
             "title": title,

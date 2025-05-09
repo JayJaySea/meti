@@ -27,14 +27,13 @@ from PySide6.QtWidgets import (
 
 from db import model
 from gui.workspace import Workspace
-from gui.widgets.button import BackButton, AcceptButton, CloseButton, MenuButton, AddButton, OpenButton, EditButton
+from gui.widgets.button import BackButton, AcceptButton, CloseButton, MenuButton, AddButton, OpenButton, EditButton, DuplicateButton
 from gui.widgets.dialog import DialogTemplate
-from gui.widgets.checklist import CheckBox, ChecklistEditor
+from gui.widgets.checklist import CheckBox, ChecklistEditor, TemplatePicker
 
 class Project(QFrame):
     project_created = Signal()
     open_project = Signal(dict)
-    open_project_template = Signal(dict)
 
     def __init__(self, project, parent=None):
         super().__init__(parent)
@@ -46,14 +45,16 @@ class Project(QFrame):
         self.checklist_templates = model.getChecklistTemplates()
         self.workspace = Workspace(project, parent=self)
         self.create_project_dialog = DialogTemplate(self.initCreateProjectDialog(), self.window())
+        self.create_project_dialog.pressed_outside.connect(self.create_project_dialog.hide)
         self.main_menu_dialog = DialogTemplate(self.initMainMenu(), self.window())
+        self.main_menu_dialog.pressed_outside.connect(self.main_menu_dialog.hide)
 
         self.initTopMenu()
 
     def initTopMenu(self):
         self.menu_button = MenuButton(lambda: self.main_menu_dialog.show(), parent=self)
         self.add_button = AddButton(lambda: self.create_project_dialog.show(), parent=self)
-        self.project_name = QLabel(self.project["name"], self)
+        self.project_name = QLabel(self.project["title"], self)
         self.project_name.setObjectName("ProjectName")
         self.project_name.setFixedHeight(40)
         self.close_button = CloseButton(lambda: QApplication.quit(), parent=self)
@@ -62,8 +63,8 @@ class Project(QFrame):
         input_label = QLabel("PROJECT NAME")
         input_label.setObjectName("TextInputLabel")
         input_label.setAlignment(Qt.AlignCenter)
-        self.project_name_input = QLineEdit()
-        self.project_name_input.setObjectName("TextInput")
+        self.project_title_input = QLineEdit()
+        self.project_title_input.setObjectName("TextInput")
         self.template_checkbox = CheckBox("IS TEMPLATE", False)
         self.template_checkbox.label.setProperty("alt-font", True)
 
@@ -71,7 +72,7 @@ class Project(QFrame):
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.addWidget(input_label)
-        layout.addWidget(self.project_name_input)
+        layout.addWidget(self.project_title_input)
 
         center_checkbox = QHBoxLayout()
         center_checkbox.addStretch()
@@ -83,20 +84,51 @@ class Project(QFrame):
         buttons = QHBoxLayout()
         buttons.addWidget(BackButton(lambda: self.create_project_dialog.hide()))
         buttons.addStretch()
+        buttons.addWidget(DuplicateButton(lambda: self.enterTemplatePicker()))
         buttons.addWidget(AcceptButton(lambda: self.createProject()))
         layout.addLayout(buttons)
 
-        creator = QWidget()
+
+        creator = QFrame()
         creator.setLayout(layout)
         creator.setObjectName("Dialog")
-        creator.setFixedSize(300, 185)
 
-        return creator
+        self.project_creator = QStackedWidget()
+        self.project_creator.addWidget(creator)
+        self.project_creator.resize(300, 200)
+
+        return self.project_creator
+    
+    def enterTemplatePicker(self):
+        picker = TemplatePicker(model.getProjectTemplates())
+        picker.back.connect(self.leaveTemplatePicker)
+        picker.template_picked.connect(self.projectFromTemplate)
+
+        self.project_creator.resize(500, 500)
+        self.create_project_dialog.adjustDialog()
+        self.project_creator.addWidget(picker)
+        self.project_creator.setCurrentIndex(1)
+
+    def leaveTemplatePicker(self):
+        self.project_creator.removeWidget(self.project_creator.widget(1))
+        self.project_creator.setCurrentIndex(0)
+        self.project_creator.resize(300, 200)
+        self.create_project_dialog.adjustDialog()
+
+    def projectFromTemplate(self, template):
+        if not template:
+            return
+
+        self.project_creator.removeWidget(self.project_creator.widget(1))
+        self.project_creator.setCurrentIndex(0)
+        self.project_creator.resize(300, 200)
+        self.create_project_dialog.adjustDialog()
+        self.create_project_dialog.hide()
 
     def createProject(self):
-        project_name = self.project_name_input.text()
+        project_title = self.project_title_input.text()
         is_template = True if self.template_checkbox.state else False
-        model.createProject(project_name, is_template)
+        model.createProject(project_title, is_template)
         self.create_project_dialog.hide()
         self.project_created.emit()
 
@@ -106,7 +138,7 @@ class Project(QFrame):
         tabs.addTab(self.initManageProjectsMenu(), "PROJECTS")
         tabs.addTab(self.initManageTemplatesMenu(), "TEMPLATES")
 
-        self.checklist_editor = ChecklistEditor()
+        self.checklist_editor = ChecklistEditor(is_template=True)
         self.checklist_editor.checklist_ready.connect(self.checklistReady)
         self.checklist_editor.back.connect(lambda: self.main_menu.setCurrentIndex(0))
 
@@ -114,6 +146,7 @@ class Project(QFrame):
         self.main_menu.setFixedHeight(500)
         self.main_menu.addWidget(tabs)
         self.main_menu.addWidget(self.checklist_editor)
+        self.main_menu.setObjectName("TransparentContainer")
 
         return self.main_menu
 
@@ -124,7 +157,7 @@ class Project(QFrame):
             button = OpenButton(lambda: (), id=project["id"])
             button.pressed.connect(self.openProject)
             hlayout.addWidget(button)
-            label = QLabel(project["name"])
+            label = QLabel(project["title"])
             label.setObjectName("ProjectNameAlt")
             label.setFixedHeight(40)
             hlayout.addWidget(label, stretch=1)
@@ -164,7 +197,7 @@ class Project(QFrame):
             button = OpenButton(lambda: (), id=project["id"])
             button.pressed.connect(self.openProjectTemplate)
             hlayout.addWidget(button)
-            label = QLabel(project["name"])
+            label = QLabel(project["title"])
             label.setObjectName("ProjectNameAlt")
             label.setFixedHeight(40)
             hlayout.addWidget(label, stretch=1)
@@ -230,7 +263,7 @@ class Project(QFrame):
     def openProjectTemplate(self, template_id):
         for template in self.project_templates:
             if template["id"] == template_id:
-                self.open_project_template.emit(template)
+                self.open_project.emit(template)
                 self.main_menu_dialog.hide()
 
     def editChecklistTemplate(self, template_id):
@@ -245,7 +278,7 @@ class Project(QFrame):
 
         self.main_menu.setCurrentIndex(1)
 
-    def checklistReady(self, title, checks, id):
+    def checklistReady(self, title, checks, id, template_id=None):
         self.main_menu.setCurrentIndex(0)
         self.checklist_editor.setChecklistName(None)
         self.checklist_editor.setChecks(None)

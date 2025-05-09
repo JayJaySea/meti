@@ -1,6 +1,6 @@
 create table projects (
     id uuid primary key,
-    name text unique not null,
+    title text unique not null,
     is_template boolean not null,
     last_accessed integer,
     view_x integer,

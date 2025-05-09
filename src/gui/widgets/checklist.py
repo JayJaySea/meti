@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QLayout,
 )
 
-from gui.widgets.button import DeleteButton, UpDownButton, AddButton, BackButton, AcceptButton, EditButton
+from gui.widgets.button import DeleteButton, UpDownButton, AddButton, BackButton, AcceptButton, EditButton, PushButton, DuplicateButton
 from db import model
 
 class Checklist(QFrame):
@@ -181,8 +181,10 @@ class CheckBox(QFrame):
         self.id = id
 
         self.initLayout()
-        if self.state:
+        if self.state == 1:
             self.activeStyle()
+        if self.state == 2:
+            self.nonApplicableStyle()
 
     def initLayout(self):
         self.checkbox = QFrame(self)
@@ -219,8 +221,16 @@ class CheckBox(QFrame):
         event.accept()
 
     def mousePressEvent(self, event):
-        self.state = 1 if not self.state else 0
-        if self.state:
+        if event.button() == Qt.RightButton:
+            if self.id:
+                self.state = 2 if self.state != 2 else 0
+        elif event.button() == Qt.LeftButton:
+            self.state = 1 if self.state != 1 else 0
+
+        if self.state == 2:
+            self.nonApplicableStyle()
+            model.updateCheckState(self.id, 2)
+        elif self.state:
             self.activeStyle()
             if self.id:
                 model.updateCheckState(self.id, 1)
@@ -256,22 +266,35 @@ class CheckBox(QFrame):
     def defaultStyle(self):
         self.indicator.setProperty("hover", False)
         self.indicator.setProperty("active", False)
+        self.label.setProperty("strikethrough", False)
         self.refreshStyle()
 
     def hoverStyle(self):
         self.indicator.setProperty("active", False)
         self.indicator.setProperty("hover", True)
+        self.label.setProperty("strikethrough", False)
         self.refreshStyle()
 
     def activeStyle(self):
         self.indicator.setProperty("hover", False)
         self.indicator.setProperty("active", True)
+        self.label.setProperty("strikethrough", False)
+        self.refreshStyle()
+
+    def nonApplicableStyle(self):
+        self.indicator.setProperty("hover", False)
+        self.indicator.setProperty("active", True)
+        self.label.setProperty("strikethrough", True)
         self.refreshStyle()
 
     def refreshStyle(self):
         self.indicator.style().unpolish(self.indicator)
         self.indicator.style().polish(self.indicator)
         self.indicator.update()
+
+        self.label.style().unpolish(self.label)
+        self.label.style().polish(self.label)
+        self.label.update()
 
 class CreateChecklistButton(QFrame):
     pressed = Signal(QEvent)
@@ -339,20 +362,28 @@ class CreateChecklistDestination(QFrame):
         self.circle.setObjectName("CreateChecklistDestination")
         self.circle.resize(14, 14)
 
-class ChecklistEditor(QFrame):
-    checklist_ready = Signal(str, list, str)
+class ChecklistEditor(QStackedWidget):
+    checklist_ready = Signal(str, list, str, str)
     back = Signal()
 
-    def __init__(self, title=None, items=None, id=None, parent=None):
+    def __init__(self, title=None, items=None, id=None, is_template=False, parent=None):
         super().__init__(parent)
         self.title = title
         self.checks = items
         self.id = id
+        self.is_template = is_template
 
         self.setObjectName("Dialog")
         self.initLayout()
     
     def setId(self, id):
+        if not self.is_template:
+            if id:
+                self.pull_button.hide()
+                self.push_button.show()
+            else:
+                self.pull_button.show()
+                self.push_button.hide()
         self.id = id
 
     def initLayout(self):
@@ -364,10 +395,17 @@ class ChecklistEditor(QFrame):
         items_label = QLabel("ITEMS")
         items_label.setObjectName("TextInputLabel")
         items_label.setAlignment(Qt.AlignCenter)
-        self.item_editor = ItemEditor(self.checks)
+        self.item_editor = ItemEditor(self.checks, is_template=self.is_template)
         buttons = QHBoxLayout()
         buttons.addWidget(BackButton(lambda: self.back.emit()))
         buttons.addStretch()
+        if not self.is_template:
+            self.push_button = PushButton(lambda: self.pushToTemplate())
+            self.push_button.hide()
+            buttons.addWidget(self.push_button)
+            self.pull_button = DuplicateButton(lambda: self.enterTemplatePicker())
+            buttons.addWidget(self.pull_button)
+
         buttons.addWidget(AcceptButton(lambda: self.checklistReady()))
 
         layout = QVBoxLayout()
@@ -379,15 +417,65 @@ class ChecklistEditor(QFrame):
         layout.addWidget(self.item_editor)
         layout.addLayout(buttons)
 
-        self.setLayout(layout)
+        self.editor = QFrame()
+        self.editor.setLayout(layout)
+
+
+        self.addWidget(self.editor)
     
+    def pushToTemplate(self):
+        title = self.checklist_name_input.text()
+        if not title or not self.item_editor.itemsFilled():
+            return
+
+        checks = self.item_editor.getItems()
+        checklist = model.getChecklist(self.id)
+        template_id = checklist["template_id"]
+        if template_id:
+            model.updateTemplateChecklist(template_id, title)
+            model.deleteTemplateChecks(template_id)
+        else:
+            template_id = model.createChecklistTemplate(title)
+            model.setTemplateForChecklist(self.id, template_id)
+
+        for check in checks:
+            model.createTemplateCheck(template_id, check["content"], check["position"])
+
+    def enterTemplatePicker(self):
+        picker = TemplatePicker(model.getChecklistTemplates())
+        picker.back.connect(self.leaveTemplatePicker)
+        picker.template_picked.connect(self.pullFromTemplate)
+        self.addWidget(picker)
+        self.setCurrentIndex(1)
+
+    def leaveTemplatePicker(self):
+        self.removeWidget(self.widget(1))
+        self.setCurrentIndex(0)
+
+    def pullFromTemplate(self, template):
+        if not template:
+            return
+
+        self.removeWidget(self.widget(1))
+        self.setCurrentIndex(0)
+
+        title = template["title"]
+        checks = []
+        for check in template["checks"]:
+            check["state"] = 0
+            check.pop("id", None)
+            check.pop("template_id", None)
+            checks.append(check)
+
+        self.checklist_ready.emit(title, checks, self.id, template["id"])
+
     def checklistReady(self):
         title = self.checklist_name_input.text()
         if not title or not self.item_editor.itemsFilled():
             return
 
         items = self.item_editor.getItems()
-        self.checklist_ready.emit(title, items, self.id)
+        self.checklist_ready.emit(title, items, self.id, None)
 
     def setChecklistName(self, text):
         self.checklist_name_input.setText(text)
@@ -395,12 +483,20 @@ class ChecklistEditor(QFrame):
     def setChecks(self, checks):
         self.item_editor.setChecks(checks)
 
+    def reset(self):
+        if self.widget(1):
+            self.removeWidget(self.widget(1))
+        self.setCurrentIndex(0)
+        self.setChecklistName(None)
+        self.setChecks(None)
+
 
 class ItemEditor(QScrollArea):
-    def __init__(self, items=None, parent=None):
+    def __init__(self, items=None, is_template=False, parent=None):
         super().__init__(parent)
         self.checks = items if items else []
         self.dragging = False
+        self.is_template = is_template
         self.setFixedSize(500, 300)
 
         self.setWidgetResizable(True)
@@ -510,13 +606,19 @@ class ItemEditor(QScrollArea):
                 if not widget.id == check["id"]:
                     continue
 
-                checks.append({
+                c = {
                     "id": widget.id,
-                    "checklist_id": check["checklist_id"],
                     "content": widget.content,
-                    "state": 0,
                     "position": i
-                })
+                }
+                
+                if not self.is_template:
+                    c["checklist_id"] = check["checklist_id"]
+                    c["state"] = 0
+                else:
+                    c["template_id"] = check["template_id"]
+
+                checks.append(c)
                 break
 
         return checks
@@ -578,3 +680,81 @@ class EditableItem(QFrame):
         self.parent().layout().removeWidget(self)
         self.setParent(None)
         self.deleteLater()
+
+class TemplatePicker(QFrame):
+    back = Signal()
+    template_picked = Signal(dict)
+
+    def __init__(self, templates, parent=None):
+        super().__init__(parent)
+        self.picked = None
+        self.setObjectName("Container")
+        self.initLayout(templates)
+
+    def initLayout(self, templates):
+        input_label = QLabel("CHOOSE TEMPLATE")
+        input_label.setObjectName("TextInputLabel")
+        input_label.setAlignment(Qt.AlignCenter)
+        self.template_search = QLineEdit()
+        self.template_search.setObjectName("TextInput")
+        self.template_search.setPlaceholderText("Search...")
+        self.template_search.textChanged.connect(self.searchTemplates)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.templates = {}
+        for template in templates:
+            template_widget = QPushButton(template["title"])
+            template_widget.setFixedHeight(40)
+            template_widget.toggled.connect(self.updatePicked)
+            template_widget.setCheckable(True)
+            template_widget.setObjectName("PickerItem")
+            self.templates[template_widget] = template
+            layout.addWidget(template_widget)
+
+        layout.addStretch()
+        container = QFrame()
+        container.setLayout(layout)
+
+        items = QScrollArea()
+        items.setWidget(container)
+        items.setObjectName("BorderlessContainer")
+        items.setWidgetResizable(True)
+
+        layout = QVBoxLayout()
+        layout.addWidget(input_label)
+        layout.addWidget(self.template_search)
+        layout.addWidget(items)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(BackButton(lambda: self.back.emit()))
+        buttons.addStretch()
+        buttons.addWidget(AcceptButton(lambda: self.template_picked.emit(self.picked)))
+        layout.addLayout(buttons)
+
+        self.setLayout(layout)
+
+    def updatePicked(self, state):
+        if self.picked:
+            self.picked["widget"].setChecked(False)
+
+        self.picked = self.templates[self.sender()] if state else None
+
+        if self.picked:
+            self.picked["widget"] = self.sender()
+
+    def searchTemplates(self, text):
+        if self.picked:
+            self.picked["widget"].setChecked(False)
+
+        first = True
+        for template_widget in self.templates:
+            template = self.templates[template_widget]
+
+            if not text.lower() in template["title"].lower():
+                template_widget.hide()
+            else:
+                if first:
+                    template_widget.setChecked(True)
+                    first = False
+                template_widget.show()
