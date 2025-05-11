@@ -25,10 +25,10 @@ from PySide6.QtWidgets import (
 )
 
 import math
-from db import model
-from gui.widgets.checklist import Checklist, CreateChecklistButton, CreateChecklistDestination, ChecklistEditor
-from gui.widgets.dialog import DialogTemplate
-from util import centerLeft, centerRight, topCenter, bottomCenter
+from meti.db import model
+from meti.gui.widgets.checklist import Checklist, CreateChecklistButton, CreateChecklistDestination, ChecklistEditor
+from meti.gui.widgets.dialog import DialogTemplate
+from meti.util import centerLeft, centerRight, topCenter, bottomCenter
 
 class Workspace(QGraphicsView):
     def __init__(self, project, parent=None):

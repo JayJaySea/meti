@@ -7,6 +7,7 @@ pkgs.mkShell
             ps.pyside6
             ps.pillow
             ps.pysqlcipher3
+            ps.pip
         ]))
     ];
 

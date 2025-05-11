@@ -20,8 +20,8 @@ from PySide6.QtWidgets import (
     QLayout,
 )
 
-from gui.widgets.button import DeleteButton, UpDownButton, AddButton, BackButton, AcceptButton, EditButton, PushButton, DuplicateButton
-from db import model
+from meti.gui.widgets.button import DeleteButton, UpDownButton, AddButton, BackButton, AcceptButton, EditButton, PushButton, DuplicateButton
+from meti.db import model
 
 class Checklist(QFrame):
     checklist_moved = Signal()
@@ -688,7 +688,6 @@ class TemplatePicker(QFrame):
     def __init__(self, templates, parent=None):
         super().__init__(parent)
         self.picked = None
-        self.setObjectName("Container")
         self.initLayout(templates)
 
     def initLayout(self, templates):
@@ -731,6 +730,79 @@ class TemplatePicker(QFrame):
         buttons.addStretch()
         buttons.addWidget(AcceptButton(lambda: self.template_picked.emit(self.picked)))
         layout.addLayout(buttons)
+
+        self.setLayout(layout)
+
+    def updatePicked(self, state):
+        if self.picked:
+            self.picked["widget"].setChecked(False)
+
+        self.picked = self.templates[self.sender()] if state else None
+
+        if self.picked:
+            self.picked["widget"] = self.sender()
+
+    def searchTemplates(self, text):
+        if self.picked:
+            self.picked["widget"].setChecked(False)
+
+        first = True
+        for template_widget in self.templates:
+            template = self.templates[template_widget]
+
+            if not text.lower() in template["title"].lower():
+                template_widget.hide()
+            else:
+                if first:
+                    template_widget.setChecked(True)
+                    first = False
+                template_widget.show()
+
+class TemplatePickerLite(QFrame):
+    back = Signal()
+    template_picked = Signal(dict)
+
+    def __init__(self, templates, parent=None):
+        super().__init__(parent)
+        self.picked = None
+        self.setObjectName("TransparentContainer")
+        self.initLayout(templates)
+
+    def initLayout(self, templates):
+        input_label = QLabel("AVAILABLE TEMPLATES")
+        input_label.setObjectName("TextInputLabel")
+        input_label.setAlignment(Qt.AlignCenter)
+        self.template_search = QLineEdit()
+        self.template_search.setObjectName("TextInput")
+        self.template_search.setPlaceholderText("Search...")
+        self.template_search.textChanged.connect(self.searchTemplates)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.templates = {}
+        for template in templates:
+            template_widget = QPushButton(template["title"])
+            template_widget.setFixedHeight(40)
+            template_widget.toggled.connect(self.updatePicked)
+            template_widget.setCheckable(True)
+            template_widget.setObjectName("PickerItem")
+            self.templates[template_widget] = template
+            layout.addWidget(template_widget)
+
+        layout.addStretch()
+        container = QFrame()
+        container.setLayout(layout)
+
+        items = QScrollArea()
+        items.setWidget(container)
+        items.setObjectName("BorderlessContainer")
+        items.setWidgetResizable(True)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(input_label)
+        layout.addWidget(self.template_search)
+        layout.addWidget(items)
 
         self.setLayout(layout)
 

@@ -6,9 +6,9 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from gui.login import Login
-from gui.project import Project
-from db import model
+from meti.gui.login import Login
+from meti.gui.project import Project
+from meti.db import model
 
 class MainWindow(QMainWindow):
     def __init__(self):

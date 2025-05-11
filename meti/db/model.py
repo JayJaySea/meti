@@ -2,7 +2,7 @@ from pysqlcipher3 import dbapi2 as sqlcipher
 import time
 import uuid
 import os
-import data
+from meti import data
 
 db = None
 DB_PATH = os.path.join(data.DATA_DIR, "meti.db")
@@ -89,10 +89,10 @@ def getChecklistTemplate(id):
     global db
     return db.execute('select * from checklist_templates where id = ?', (id,)).fetchone()
 
-def createChecklistTemplate(title):
+def createChecklistTemplate(title, color=None, note_id=None):
     global db
     id = str(uuid.uuid4())
-    db.execute('insert into checklist_templates values (?, ?)', (id, title))
+    db.execute('insert into checklist_templates values (?, ?, ?, ?)', (id, title, color, note_id))
     db.commit()
     return id
 
@@ -103,7 +103,7 @@ def getChecklist(id):
 def createChecklist(checklist):
     global db
     id = str(uuid.uuid4())
-    db.execute('insert into checklists values (?, ?, ?, ?, ?, ?, ?)', (id, checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["title"], checklist["position_x"], checklist["position_y"]))
+    db.execute('insert into checklists values (?, ?, ?, ?, ?, ?, ?, ?, ?)', (id, checklist["template_id"], checklist["project_id"], checklist["parent_id"], checklist["title"], checklist["position_x"], checklist["position_y"], checklist.get("color"), checklist.get("note_id")))
     db.commit()
     return id
 
@@ -171,9 +171,9 @@ def getTemplateChecks(template_id):
     global db
     return db.execute('select * from template_checks where template_id = ? order by position', (template_id,)).fetchall()
 
-def updateTemplateChecklist(id, title):
+def updateTemplateChecklist(id, title, color=None, note_id=None):
     global db
-    db.execute('update checklist_templates set title = ? where id = ?', (title, id))
+    db.execute('update Checklist_templates set title = ?, color = ?, note_id = ? where id = ?', (title, color, note_id, id))
     db.commit()
 
 def updateTemplateCheck(id, content, position):

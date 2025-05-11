@@ -10,7 +10,6 @@ def main(args):
     icons = load_icons(args["input_dir"])
 
     color_icons(icons, colors, args["recolor"], args["output_dir"])
-    
 
 def parse_scss_variables(file_path):
     variable_regex = re.compile(r'\$([\w-]+):\s*(.*);')
@@ -109,4 +108,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(vars(args))
+    color_icons(vars(args))

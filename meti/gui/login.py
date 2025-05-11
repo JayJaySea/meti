@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QLayout,
 )
-from gui.widgets.button import IconButton, BackButton, AcceptButton
-from db import model
+from meti.gui.widgets.button import IconButton, BackButton, AcceptButton
+from meti.db import model
 from time import sleep
 
 class Login(QWidget):

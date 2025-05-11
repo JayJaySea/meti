@@ -25,11 +25,11 @@ from PySide6.QtWidgets import (
     QLayout,
 )
 
-from db import model
-from gui.workspace import Workspace
-from gui.widgets.button import BackButton, AcceptButton, CloseButton, MenuButton, AddButton, OpenButton, EditButton, DuplicateButton
-from gui.widgets.dialog import DialogTemplate
-from gui.widgets.checklist import CheckBox, ChecklistEditor, TemplatePicker
+from meti.db import model
+from meti.gui.workspace import Workspace
+from meti.gui.widgets.button import BackButton, AcceptButton, CloseButton, MenuButton, AddButton, OpenButton, EditButton, DuplicateButton
+from meti.gui.widgets.dialog import DialogTemplate
+from meti.gui.widgets.checklist import CheckBox, ChecklistEditor, TemplatePickerLite
 
 class Project(QFrame):
     project_created = Signal()
@@ -79,56 +79,40 @@ class Project(QFrame):
         center_checkbox.addWidget(self.template_checkbox)
         center_checkbox.addStretch()
         layout.addLayout(center_checkbox)
+
+        self.template_picker = TemplatePickerLite(model.getProjectTemplates())
+        layout.addWidget(self.template_picker)
         layout.addStretch()
 
         buttons = QHBoxLayout()
         buttons.addWidget(BackButton(lambda: self.create_project_dialog.hide()))
         buttons.addStretch()
-        buttons.addWidget(DuplicateButton(lambda: self.enterTemplatePicker()))
         buttons.addWidget(AcceptButton(lambda: self.createProject()))
         layout.addLayout(buttons)
-
 
         creator = QFrame()
         creator.setLayout(layout)
         creator.setObjectName("Dialog")
+        creator.resize(500,500)
 
-        self.project_creator = QStackedWidget()
-        self.project_creator.addWidget(creator)
-        self.project_creator.resize(300, 200)
-
-        return self.project_creator
+        return creator
     
-    def enterTemplatePicker(self):
-        picker = TemplatePicker(model.getProjectTemplates())
-        picker.back.connect(self.leaveTemplatePicker)
-        picker.template_picked.connect(self.projectFromTemplate)
-
-        self.project_creator.resize(500, 500)
-        self.create_project_dialog.adjustDialog()
-        self.project_creator.addWidget(picker)
-        self.project_creator.setCurrentIndex(1)
-
-    def leaveTemplatePicker(self):
-        self.project_creator.removeWidget(self.project_creator.widget(1))
-        self.project_creator.setCurrentIndex(0)
-        self.project_creator.resize(300, 200)
-        self.create_project_dialog.adjustDialog()
-
-    def projectFromTemplate(self, template):
-        if not template:
-            return
-
-        self.project_creator.removeWidget(self.project_creator.widget(1))
-        self.project_creator.setCurrentIndex(0)
-        self.project_creator.resize(300, 200)
-        self.create_project_dialog.adjustDialog()
-        self.create_project_dialog.hide()
-
     def createProject(self):
         project_title = self.project_title_input.text()
+        if not project_title:
+            return
+
         is_template = True if self.template_checkbox.state else False
-        model.createProject(project_title, is_template)
+        project_id = model.createProject(project_title, is_template)
+        template = self.template_picker.picked
+        if template:
+            checklists = model.getProjectChecklists(template["id"])
+            for checklist in checklists:
+                checklist["project_id"] = project_id
+                checklist_copy_id = model.createChecklist(checklist)
+                for check in checklist["checks"]:
+                    model.createCheck(checklist_copy_id, check["content"], 0, check["position"])
+
         self.create_project_dialog.hide()
         self.project_created.emit()
 

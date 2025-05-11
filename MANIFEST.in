@@ -1,0 +1,4 @@
+recursive-include meti_src/fonts *.ttf
+recursive-include meti_src/icons *.png
+recursive-include meti_src/style *.scss
+include meti_src/schema.sql

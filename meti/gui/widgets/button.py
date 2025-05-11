@@ -3,7 +3,7 @@ from PySide6.QtCore import QSize, Qt, QPoint, Signal, QEvent
 from PySide6.QtGui import QPixmap, QColor
 from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle
 import os
-from data import DATA_DIR
+from meti.data import DATA_DIR
 
 
 class IconButton(QPushButton):
