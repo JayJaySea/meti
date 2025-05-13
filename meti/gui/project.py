@@ -106,12 +106,20 @@ class Project(QFrame):
         project_id = model.createProject(project_title, is_template)
         template = self.template_picker.picked
         if template:
+            checklist_mapping = {}
             checklists = model.getProjectChecklists(template["id"])
             for checklist in checklists:
                 checklist["project_id"] = project_id
                 checklist_copy_id = model.createChecklist(checklist)
+                checklist_mapping[checklist["id"]] = checklist_copy_id
                 for check in checklist["checks"]:
                     model.createCheck(checklist_copy_id, check["content"], 0, check["position"])
+
+            for checklist in checklists:
+                if not checklist["parent_id"]:
+                    continue
+                
+                model.updateChecklistParent(checklist_mapping[checklist["id"]], checklist_mapping[checklist["parent_id"]])
 
         self.create_project_dialog.hide()
         self.project_created.emit()

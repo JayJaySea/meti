@@ -28,6 +28,7 @@ class Checklist(QFrame):
     position_changed = Signal(int, int)
     delete_checklist = Signal(str)
     edit_checklist = Signal(str)
+    checkbox_state_changed = Signal(object, object, int)
 
     def __init__(self, title, items, position, grid_size, proxy=None, parent=None, id=None):
         super().__init__(parent)
@@ -73,6 +74,7 @@ class Checklist(QFrame):
         self.checks = {}
         for check in checks:
             checkbox = CheckBox(check["content"], check["state"], id=check["id"])
+            checkbox.state_changed.connect(self.checkBoxStateChanged)
             self.checks[checkbox] = check
 
             self.body_layout.addWidget(checkbox)
@@ -161,14 +163,20 @@ class Checklist(QFrame):
         self.checks = {}
         for check in checks:
             checkbox = CheckBox(check["content"], check["state"], id=check["id"])
+            checkbox.state_changed.connect(self.checkBoxStateChanged)
             self.checks[checkbox] = check
             self.body_layout.addWidget(checkbox)
 
         self.body_layout.activate()
         self.repaint()
 
+    def checkBoxStateChanged(self, id, state):
+        self.checkbox_state_changed.emit(self.id, id, state)
+
 
 class CheckBox(QFrame):
+    state_changed = Signal(object, int)
+
     def __init__(self, label, state, id=None, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
@@ -229,15 +237,15 @@ class CheckBox(QFrame):
 
         if self.state == 2:
             self.nonApplicableStyle()
-            model.updateCheckState(self.id, 2)
+            self.state_changed.emit(self.id, 2)
         elif self.state:
             self.activeStyle()
             if self.id:
-                model.updateCheckState(self.id, 1)
+                self.state_changed.emit(self.id, 1)
         else:
             self.hoverStyle()
             if self.id:
-                model.updateCheckState(self.id, 0)
+                self.state_changed.emit(self.id, 0)
 
         event.accept()
 
@@ -363,7 +371,7 @@ class CreateChecklistDestination(QFrame):
         self.circle.resize(14, 14)
 
 class ChecklistEditor(QStackedWidget):
-    checklist_ready = Signal(str, list, str, str)
+    checklist_ready = Signal(str, list, str, object)
     back = Signal()
 
     def __init__(self, title=None, items=None, id=None, is_template=False, parent=None):
@@ -614,7 +622,7 @@ class ItemEditor(QScrollArea):
                 
                 if not self.is_template:
                     c["checklist_id"] = check["checklist_id"]
-                    c["state"] = 0
+                    c["state"] = check["state"]
                 else:
                     c["template_id"] = check["template_id"]
 

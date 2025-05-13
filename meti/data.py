@@ -23,7 +23,7 @@ def init():
 
     fonts_src = os.path.join(root_dir, "fonts")
     fonts_dest = os.path.join(DATA_DIR, "fonts")
-    shutil.copytree(fonts_src, fonts_dest)
+    shutil.copytree(fonts_src, fonts_dest, dirs_exist_ok=True)
 
     style_src = os.path.join(root_dir, "style", "main.scss")
     style_dest = os.path.join(DATA_DIR, "style.css")

@@ -122,6 +122,11 @@ def updateChecklistTitle(id, title):
     db.execute('update checklists set title = ? where id = ?', (title, id))
     db.commit()
 
+def updateChecklistParent(id, parent_id):
+    global db
+    db.execute('update checklists set parent_id = ? where id = ?', (parent_id, id))
+    db.commit()
+
 def setTemplateForChecklist(id, template_id):
     global db
     db.execute('update checklists set template_id = ? where id = ?', (template_id, id))
@@ -148,6 +153,16 @@ def createCheck(checklist_id, content, state, position):
     db.execute('insert into checks values (?, ?, ?, ?, ?)', (id, checklist_id, content, state, position))
     db.commit()
     return id
+
+def updateCheckContent(id, content):
+    global db
+    db.execute('update checks set content = ? where id = ?', (content, id))
+    db.commit()
+
+def updateCheckPosition(id, position):
+    global db
+    db.execute('update checks set position = ? where id = ?', (position, id))
+    db.commit()
 
 def updateCheck(id, content, state, position):
     global db

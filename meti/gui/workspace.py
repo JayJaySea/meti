@@ -152,6 +152,7 @@ class Workspace(QGraphicsView):
         widget.checklist_moved.connect(self.onChecklistMoved)
         widget.delete_checklist.connect(self.deleteChecklist)
         widget.edit_checklist.connect(self.showChecklistEditDialog)
+        widget.checkbox_state_changed.connect(self.checkBoxStateChanged)
 
         return widget
 
@@ -387,7 +388,8 @@ class Workspace(QGraphicsView):
 
         for check in checks:
             if check.get("id"):
-                model.updateCheck(check["id"], check["content"], check["state"], check["position"])
+                model.updateCheckContent(check["id"], check["content"])
+                model.updateCheckPosition(check["id"], check["position"])
             else:
                 id = model.createCheck(checklist["id"], check["content"], 0, check["position"])
                 check["id"] = id
@@ -493,6 +495,14 @@ class Workspace(QGraphicsView):
         proxy.deleteLater()
         self.checklists.pop(checklist["id"], None)
         model.deleteChecklist(checklist["id"])
+
+    def checkBoxStateChanged(self, checklist_id, check_id, state):
+        model.updateCheckState(check_id, state)
+        checks = self.checklists[checklist_id]["checks"]
+
+        check = next((check for check in checks if check.get("id") == check_id), None)
+        if check:
+            check["state"] = state
 
 
 class GridBackground(QGraphicsItem):
