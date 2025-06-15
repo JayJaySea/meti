@@ -27,161 +27,6 @@ QLineEdit {
     border-color: $foreground;
 }
 
-IconButton {
-    outline: 3px solid $background-dark;
-    outline-offset: 15px;
-    border-style: solid;
-    border-width: 2px;
-    border-radius: 5px;
-    background-color: $background-dark;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-#AddButton {
-    border-color: $green;
-}
-
-#AddButton[hover=true] {
-    background-color: $background;
-}
-
-#AddButton[active=true] {
-    background-color: $green;
-}
-
-#BackButton {
-    border-color: $red;
-}
-
-#BackButton[hover=true] {
-    background-color: $background;
-}
-
-#BackButton[active=true] {
-    background-color: $red;
-}
-
-#AcceptButton {
-    border-color: $blue;
-}
-
-#AcceptButton[hover=true] {
-    background-color: $background;
-}
-
-#AcceptButton[active=true] {
-    background-color: $blue;
-}
-
-#DeleteButton {
-    border-color: $red;
-}
-
-#DeleteButton[hover=true] {
-    background-color: $background;
-}
-
-#DeleteButton[active=true] {
-    background-color: $red;
-}
-
-#CloseButton {
-    border-color: $red;
-}
-
-#CloseButton[hover=true] {
-    background-color: $background;
-}
-
-#CloseButton[active=true] {
-    background-color: $red;
-}
-
-#MenuButton {
-    border-color: $blue;
-}
-
-#MenuButton[hover=true] {
-    background-color: $background;
-}
-
-#MenuButton[active=true] {
-    background-color: $blue;
-}
-
-#OpenButton {
-    border-color: $blue;
-}
-
-#OpenButton[hover=true] {
-    background-color: $background;
-}
-
-#OpenButton[active=true] {
-    background-color: $blue;
-}
-
-#UpDownButton {
-    border-color: $yellow;
-}
-
-#UpDownButton[hover=true] {
-    background-color: $background;
-}
-
-#UpDownButton[active=true] {
-    background-color: $yellow;
-}
-
-#EditButton {
-    border-color: $yellow;
-}
-
-#EditButton[hover=true] {
-    background-color: $background;
-}
-
-#EditButton[active=true] {
-    background-color: $yellow;
-}
-
-#PullButton {
-    border-color: $yellow;
-}
-
-#PullButton[hover=true] {
-    background-color: $background;
-}
-
-#PullButton[active=true] {
-    background-color: $yellow;
-}
-
-#DuplicateButton {
-    border-color: $purple;
-}
-
-#DuplicateButton[hover=true] {
-    background-color: $background;
-}
-
-#DuplicateButton[active=true] {
-    background-color: $purple;
-}
-
-#PushButton {
-    border-color: $purple;
-}
-
-#PushButton[hover=true] {
-    background-color: $background;
-}
-
-#PushButton[active=true] {
-    background-color: $purple;
-}
-
 #Workspace {
     background-color: $background;
     qproperty-gridColor: $background-light;
@@ -206,7 +51,7 @@ IconButton {
     font-family: "Orbitron", Arial, sans-serif;
     text-transform: uppercase;
     font-weight: normal;
-    font-size: 25px;
+    font-size: 18px;
     border-style: solid;
     border-width: 2px;
     border-radius: 5px;
@@ -376,4 +221,84 @@ QTabBar::tab {
 #PickerItem:checked {
     background-color: $purple;
     color: $background;
+}
+
+#ButtonIndicator {
+    font-family: "Orbitron", Monospace, sans-serif;
+    font-weight: normal;
+    color: $foreground;
+    border-style: solid;
+    padding: 0px;
+    background-color: $background-dark;
+}
+
+#ButtonIndicator[small=true] {
+    font-size: 10px;
+}
+
+#ButtonIndicator[medium=true] {
+    font-size: 18px;
+    border-radius: 2px;
+}
+
+#ButtonIndicator[large=true] {
+    font-size: 30px;
+}
+
+#ButtonIndicator[hover=true] {
+    background-color: $background;
+}
+
+#ButtonIndicator[color=green] {
+    background-color: $green;
+    color: $background;
+}
+
+#ButtonIndicator[color=yellow] {
+    background-color: $yellow;
+    color: $background;
+}
+
+#ButtonIndicator[color=red] {
+    background-color: $red;
+    color: $background;
+}
+
+#ButtonIndicator[color=purple] {
+    background-color: $purple;
+    color: $background;
+}
+
+#ButtonIndicator[color=blue] {
+    background-color: $blue;
+    color: $background;
+}
+
+#IconButton {
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    padding: 0px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#IconButton[color=red] {
+    border-color: $red;
+}
+
+#IconButton[color=yellow] {
+    border-color: $yellow;
+}
+
+#IconButton[color=blue] {
+    border-color: $blue;
+}
+
+#IconButton[color=purple] {
+    border-color: $purple;
+}
+
+#IconButton[color=green] {
+    border-color: $green;
 }

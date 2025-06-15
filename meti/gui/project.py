@@ -52,12 +52,15 @@ class Project(QFrame):
         self.initTopMenu()
 
     def initTopMenu(self):
-        self.menu_button = MenuButton(lambda: self.main_menu_dialog.show(), parent=self)
-        self.add_button = AddButton(lambda: self.create_project_dialog.show(), parent=self)
-        self.project_name = QLabel(self.project["title"], self)
-        self.project_name.setObjectName("ProjectName")
-        self.project_name.setFixedHeight(40)
-        self.close_button = CloseButton(lambda: QApplication.quit(), parent=self)
+        self.menu_button = MenuButton(size="medium", parent=self)
+        self.menu_button.clicked.connect(lambda: self.main_menu_dialog.show())
+        self.add_button = AddButton(size="medium", parent=self)
+        self.add_button.clicked.connect(lambda: self.create_project_dialog.show())
+        # self.project_name = QLabel(self.project["title"], self)
+        # self.project_name.setObjectName("ProjectName")
+        # self.project_name.setFixedHeight(40)
+        self.close_button = CloseButton(size="medium", parent=self)
+        self.close_button.clicked.connect(lambda: QApplication.quit())
 
     def initCreateProjectDialog(self):
         input_label = QLabel("PROJECT NAME")
@@ -85,9 +88,13 @@ class Project(QFrame):
         layout.addStretch()
 
         buttons = QHBoxLayout()
-        buttons.addWidget(BackButton(lambda: self.create_project_dialog.hide()))
+        back_button = BackButton()
+        back_button.clicked.connect(lambda: self.create_project_dialog.hide())
+        buttons.addWidget(back_button)
         buttons.addStretch()
-        buttons.addWidget(AcceptButton(lambda: self.createProject()))
+        accept_button = AcceptButton()
+        accept_button.clicked.connect(lambda: self.createProject())
+        buttons.addWidget(accept_button)
         layout.addLayout(buttons)
 
         creator = QFrame()
@@ -146,8 +153,8 @@ class Project(QFrame):
         layout = QVBoxLayout()
         for project in self.projects:
             hlayout = QHBoxLayout()
-            button = OpenButton(lambda: (), id=project["id"])
-            button.pressed.connect(self.openProject)
+            button = OpenButton(id=project["id"])
+            button.clicked.connect(self.openProject)
             hlayout.addWidget(button)
             label = QLabel(project["title"])
             label.setObjectName("ProjectNameAlt")
@@ -186,8 +193,8 @@ class Project(QFrame):
         layout = QVBoxLayout()
         for project in self.project_templates:
             hlayout = QHBoxLayout()
-            button = OpenButton(lambda: (), id=project["id"])
-            button.pressed.connect(self.openProjectTemplate)
+            button = OpenButton(id=project["id"])
+            button.clicked.connect(self.openProjectTemplate)
             hlayout.addWidget(button)
             label = QLabel(project["title"])
             label.setObjectName("ProjectNameAlt")
@@ -218,8 +225,8 @@ class Project(QFrame):
         layout = QVBoxLayout()
         for template in self.checklist_templates:
             hlayout = QHBoxLayout()
-            button = EditButton(lambda: (), id=template["id"])
-            button.pressed.connect(self.editChecklistTemplate)
+            button = EditButton(id=template["id"])
+            button.clicked.connect(self.editChecklistTemplate)
             hlayout.addWidget(button)
             label = QLabel(template["title"])
             label.setObjectName("ProjectName")
@@ -304,5 +311,5 @@ class Project(QFrame):
         self.workspace.resize(self.size())
         self.menu_button.move(10, 10)
         self.add_button.move(self.menu_button.width() + 20, 10)
-        self.project_name.move(self.size().width()/2 - self.project_name.width()/2, 10)
+        # self.project_name.move(self.size().width()/2 - self.project_name.width()/2, 10)
         self.close_button.move(self.size().width() - self.close_button.width() - 10, 10)

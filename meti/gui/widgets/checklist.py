@@ -54,14 +54,19 @@ class Checklist(QFrame):
 
     def initHead(self):
         layout = QHBoxLayout()
+        layout.setContentsMargins(5, 2, 5, 2)
         self.title = QLabel(self.title)
         self.title.setObjectName("ChecklistTitle")
         layout.addWidget(self.title, stretch=1)
         placeholder = QWidget()
-        placeholder.setFixedSize(50, 50)
-        layout.addWidget(placeholder)
-        layout.addWidget(EditButton(lambda: self.edit_checklist.emit(self.id)))
-        layout.addWidget(DeleteButton(lambda: self.delete_checklist.emit(self.id)))
+        #placeholder.setFixedWidth(20)
+        #layout.addWidget(placeholder)
+        edit_button = EditButton(size="medium")
+        edit_button.clicked.connect(lambda: self.edit_checklist.emit(self.id))
+        layout.addWidget(edit_button)
+        delete_button = DeleteButton(size="medium")
+        delete_button.clicked.connect(lambda: self.delete_checklist.emit(self.id))
+        layout.addWidget(delete_button)
 
         self.head = QWidget()
         self.head.setObjectName("ChecklistHead")
@@ -100,14 +105,15 @@ class Checklist(QFrame):
 
     def leaveEvent(self, event):
         self.setCursor(Qt.ArrowCursor)
+        # self.proxy.setCursor(Qt.SizeAllCursor)
 
     def mousePressEvent(self, event):
         self.grabbed = True
         self.grabbed_pos = event.pos()
-        self.proxy.setCursor(Qt.SizeAllCursor)
+        self.setCursor(Qt.SizeAllCursor)
 
     def mouseReleaseEvent(self, event):
-        self.proxy.setCursor(Qt.OpenHandCursor)
+        self.setCursor(Qt.OpenHandCursor)
         self.grabbed = False
         new_pos = self.pos() + (event.pos() - self.grabbed_pos)
         new_pos.setX(round(new_pos.x() / self.grid_size) * self.grid_size)
@@ -405,16 +411,22 @@ class ChecklistEditor(QStackedWidget):
         items_label.setAlignment(Qt.AlignCenter)
         self.item_editor = ItemEditor(self.checks, is_template=self.is_template)
         buttons = QHBoxLayout()
-        buttons.addWidget(BackButton(lambda: self.back.emit()))
+        back_button = BackButton()
+        back_button.clicked.connect(lambda: self.back.emit())
+        buttons.addWidget(back_button)
         buttons.addStretch()
         if not self.is_template:
-            self.push_button = PushButton(lambda: self.pushToTemplate())
+            self.push_button = PushButton()
+            self.push_button.clicked.connect(lambda: self.pushToTemplate())
             self.push_button.hide()
             buttons.addWidget(self.push_button)
-            self.pull_button = DuplicateButton(lambda: self.enterTemplatePicker())
+            self.pull_button = DuplicateButton()
+            self.pull_button.clicked.connect(lambda: self.enterTemplatePicker())
             buttons.addWidget(self.pull_button)
 
-        buttons.addWidget(AcceptButton(lambda: self.checklistReady()))
+        accept_button = AcceptButton()
+        accept_button.clicked.connect(lambda: self.checklistReady())
+        buttons.addWidget(accept_button)
 
         layout = QVBoxLayout()
 
@@ -533,7 +545,9 @@ class ItemEditor(QScrollArea):
         layout.setContentsMargins(0, 5, 0, 5)
         layout.setSpacing(0)
         layout.addStretch()
-        layout.addWidget(AddButton(lambda: self.addItem()))
+        add_button = AddButton()
+        add_button.clicked.connect(lambda: self.addItem())
+        layout.addWidget(add_button)
         layout.addStretch()
 
         add_new = QFrame()
@@ -670,7 +684,8 @@ class EditableItem(QFrame):
         updown_button.released.connect(lambda: self.released.emit())
         updown_button.moving.connect(lambda event: self.moving.emit(event))
 
-        delete_button = DeleteButton(lambda: self.delete())
+        delete_button = DeleteButton()
+        delete_button.clicked.connect(lambda: self.delete())
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -734,9 +749,13 @@ class TemplatePicker(QFrame):
         layout.addWidget(items)
 
         buttons = QHBoxLayout()
-        buttons.addWidget(BackButton(lambda: self.back.emit()))
+        back_button = BackButton()
+        back_button.clicked.connect(lambda: self.back.emit())
+        buttons.addWidget(back_button)
         buttons.addStretch()
-        buttons.addWidget(AcceptButton(lambda: self.template_picked.emit(self.picked)))
+        accept_button = AcceptButton()
+        accept_button.clicked.connect(lambda: self.template_picked.emit(self.picked))
+        buttons.addWidget(accept_button)
         layout.addLayout(buttons)
 
         self.setLayout(layout)

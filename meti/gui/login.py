@@ -66,9 +66,13 @@ class Login(QWidget):
         layout.addStretch()
 
         buttons = QHBoxLayout()
-        buttons.addWidget(BackButton(lambda: QApplication.instance().quit()))
+        back_button = BackButton()
+        back_button.clicked.connect(lambda: QApplication.instance().quit())
+        buttons.addWidget(back_button)
         buttons.addStretch()
-        buttons.addWidget(AcceptButton(lambda: self.verifyLogin()))
+        accept_button = AcceptButton()
+        accept_button.clicked.connect(lambda: self.verifyLogin())
+        buttons.addWidget(accept_button)
         layout.addLayout(buttons)
 
         self.dialog = QWidget()

@@ -1,29 +1,41 @@
 from PySide6 import QtGui
 from PySide6.QtCore import QSize, Qt, QPoint, Signal, QEvent
 from PySide6.QtGui import QPixmap, QColor
-from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle
+from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle, QHBoxLayout
 import os
 from meti.data import DATA_DIR
 
-
 class IconButton(QPushButton):
-    pressed = Signal(str)
+    clicked = Signal(str)
 
-    def __init__(self, name, icon_name, callback, size="large", parent=None, id=None):
+    def __init__(self, icon_name, color, size="large", parent=None, id=None):
         super().__init__(parent)
-        self.setObjectName(name)
-        self.callback = callback
+        self.setObjectName("IconButton")
         self.icon_default = QPixmap(os.path.join(DATA_DIR, "icons", icon_name+".png"))
         self.icon_hover = QPixmap(os.path.join(DATA_DIR, "icons", icon_name+"-hover.png"))
         self.icon_active = QPixmap(os.path.join(DATA_DIR, "icons", icon_name+"-active.png"))
         self.hovering = False
         self.active = False
         self.id = id
+        self.color = color
 
         self.setMouseTracking(True)
+        self.setProperty("color", color)
+
+        self.indicator = QPushButton(self)
+        self.indicator.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.indicator.setObjectName("ButtonIndicator")
+        self.indicator.setProperty(size, True)
+        self.indicator.setIcon(self.icon_default)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.indicator)
+
+        self.setLayout(layout)
 
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
-        self.setIcon(self.icon_default)
         self.setSize(size)
 
     def setSize(self, size):
@@ -32,10 +44,12 @@ class IconButton(QPushButton):
             self.setIconSize(QSize(6, 6))
         elif size == "medium":
             self.setFixedSize(30, 30)
-            self.setIconSize(QSize(16, 16))
+            self.indicator.setFixedSize(22, 22)
+            self.indicator.setIconSize(QSize(20, 20))
         else:
             self.setFixedSize(40, 40)
-            self.setIconSize(QSize(26, 26))
+            self.indicator.setFixedSize(32, 32)
+            self.indicator.setIconSize(QSize(26, 26))
 
     def enterEvent(self, event):
         self.setCursor(Qt.PointingHandCursor)
@@ -69,66 +83,67 @@ class IconButton(QPushButton):
         self.active = False
         self.defaultStyle()
         if self.hovering:
-            self.callback()
-            if self.id:
-                self.pressed.emit(self.id)
+            self.clicked.emit(self.id)
 
     def defaultStyle(self):
-        self.setProperty("hover", False)
-        self.setProperty("active", False)
-        self.setIcon(self.icon_default)
+        self.indicator.setProperty("hover", False)
+        self.indicator.setProperty("color", False)
+        self.indicator.setIcon(self.icon_default)
         self.refreshStyle()
 
     def hoverStyle(self):
-        self.setProperty("hover", True)
+        self.indicator.setProperty("hover", True)
+        self.indicator.setIcon(self.icon_hover)
         self.refreshStyle()
-        self.setIcon(self.icon_hover)
 
     def activeStyle(self):
-        self.setProperty("active", True)
-        self.setIcon(self.icon_active)
+        self.indicator.setProperty("color", self.color)
+        self.indicator.setIcon(self.icon_active)
         self.refreshStyle()
 
     def refreshStyle(self):
+        self.indicator.style().unpolish(self.indicator)
+        self.indicator.style().polish(self.indicator)
+        self.indicator.update()
         self.style().unpolish(self)
         self.style().polish(self)
         self.update()
 
 class AddButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("AddButton", "add", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("add", "green", size=size, parent=parent, id=id)
 
 class BackButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("BackButton", "back", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("back", "red", size=size, parent=parent, id=id)
 
 class AcceptButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("AcceptButton", "accept", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("accept", "blue", size=size, parent=parent, id=id)
 
 class DeleteButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("DeleteButton", "delete", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("delete", "red", size=size, parent=parent, id=id)
 
 class CloseButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("CloseButton", "close", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("close", "red", size=size, parent=parent, id=id)
 
 class MenuButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("MenuButton", "menu", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("menu", "blue", size=size, parent=parent, id=id)
 
 class OpenButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("OpenButton", "open", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("open", "blue", size=size, parent=parent, id=id)
 
 class UpDownButton(IconButton):
     pressed = Signal()
     moving = Signal(QEvent)
     released = Signal()
 
-    def __init__(self, callback=None, size="large", parent=None, id=None):
-        super().__init__("UpDownButton", "updown", callback=lambda: (), size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("updown", "yellow", size=size, parent=parent, id=id)
 
     def enterEvent(self, event):
         self.setCursor(Qt.OpenHandCursor)
@@ -147,17 +162,17 @@ class UpDownButton(IconButton):
         self.moving.emit(event)
 
 class EditButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("EditButton", "edit", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("edit", "yellow", size=size, parent=parent, id=id)
 
 class PushButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("PushButton", "push", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("push", "purple", size=size, parent=parent, id=id)
 
 class PullButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("PullButton", "pull", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("pull", "yellow", size=size, parent=parent, id=id)
 
 class DuplicateButton(IconButton):
-    def __init__(self, callback, size="large", parent=None, id=None):
-        super().__init__("DuplicateButton", "duplicate", callback, size=size, parent=parent, id=id)
+    def __init__(self, size="large", parent=None, id=None):
+        super().__init__("duplicate", "purple", size=size, parent=parent, id=id)

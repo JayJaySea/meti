@@ -7,22 +7,26 @@
 }
 
 #ChecklistTitle {
-    font-family: "Orbitron", Arial, sans-serif;
+    font-family: "Rajdhani", Arial, sans-serif;
     text-transform: uppercase;
-    font-weight: normal;
-    font-size: 25px;
+    font-weight: bold;
+    font-size: 30px;
 }
 
 #ChecklistHead {
     background-color: $background;
     border-style: solid;
     border-width: 0px 0px 2px 0px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
     border-color: $blue;
     margin: 0px;
 }
 
 #ChecklistBody {
     background-color: $background;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
 }
 
 #CheckBox {
