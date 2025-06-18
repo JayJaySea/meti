@@ -54,7 +54,7 @@ class Checklist(QFrame):
 
     def initHead(self):
         layout = QHBoxLayout()
-        layout.setContentsMargins(5, 2, 5, 2)
+        layout.setContentsMargins(5, 5, 5, 5)
         self.title = QLabel(self.title)
         self.title.setObjectName("ChecklistTitle")
         layout.addWidget(self.title, stretch=1)
@@ -312,13 +312,14 @@ class CheckBox(QFrame):
 
 class CreateChecklistButton(QFrame):
     pressed = Signal(QEvent)
-    released = Signal(QEvent)
+    released = Signal(str, QEvent)
 
     def __init__(self, parent=None, proxy=None, id=None):
         super().__init__(parent)
         self.setObjectName("TransparentContainer")
         self.resize(14, 14)
 
+        self.created_item = None
         self.proxy = proxy
         self.id = id
         self.grabbed = False
@@ -350,16 +351,31 @@ class CreateChecklistButton(QFrame):
         self.refreshStyle()
 
     def mousePressEvent(self, event):
+        if self.created_item:
+            return
+
         if event.button() == Qt.LeftButton:
+            self.created_item = "checklist"
+            self.proxy.setCursor(Qt.ArrowCursor)
+            self.inner_circle.show()
+            self.pressed.emit(event)
+        if event.button() == Qt.RightButton:
+            self.created_item = "node"
             self.proxy.setCursor(Qt.ArrowCursor)
             self.inner_circle.show()
             self.pressed.emit(event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton and self.created_item == "checklist":
             self.inner_circle.hide()
-            self.released.emit(event)
+            self.released.emit(self.created_item, event)
             self.grabbed = False
+            self.created_item = None
+        if event.button() == Qt.RightButton and self.created_item == "node":
+            self.inner_circle.hide()
+            self.released.emit(self.created_item, event)
+            self.grabbed = False
+            self.created_item = None
 
     def refreshStyle(self):
         self.circle.style().unpolish(self.circle)
@@ -857,3 +873,163 @@ class TemplatePickerLite(QFrame):
                     template_widget.setChecked(True)
                     first = False
                 template_widget.show()
+
+class Node(QFrame):
+    node_moved = Signal()
+    position_changed = Signal(int, int)
+    delete_node = Signal(str)
+    edit_node = Signal(str)
+
+    def __init__(self, title, position, grid_size, proxy=None, parent=None, id=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self.grabbed = False
+        self.grabbed_pos = None
+        self.title = title
+        self.position = position
+        self.grid_size = grid_size
+        self.parent_checklist = None
+        self.connected_lines = []
+        self.proxy = proxy
+        self.id = id
+
+        self.move(position["x"], position["y"])
+        self.setObjectName("Node")
+
+        self.initLayout()
+
+    def initLayout(self):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(5, 2, 10, 2)
+        self.title = QLabel(self.title)
+        self.title.setObjectName("ChecklistTitle")
+        layout.addWidget(self.title, stretch=1)
+        placeholder = QWidget()
+        edit_button = EditButton(size="medium")
+        edit_button.clicked.connect(lambda: self.edit_node.emit(self.id))
+        layout.addWidget(edit_button)
+        delete_button = DeleteButton(size="medium")
+        delete_button.clicked.connect(lambda: self.delete_node.emit(self.id))
+        layout.addWidget(delete_button)
+
+        self.setLayout(layout)
+
+    def addLine(self, line):
+        self.connected_lines.append(line)
+
+    def enterEvent(self, event):
+        self.setCursor(Qt.OpenHandCursor)
+
+    def leaveEvent(self, event):
+        self.setCursor(Qt.ArrowCursor)
+
+    def mousePressEvent(self, event):
+        self.grabbed = True
+        self.grabbed_pos = event.pos()
+        self.setCursor(Qt.SizeAllCursor)
+
+    def mouseReleaseEvent(self, event):
+        self.setCursor(Qt.OpenHandCursor)
+        self.grabbed = False
+        new_pos = self.pos() + (event.pos() - self.grabbed_pos)
+        new_pos.setX(round(new_pos.x() / self.grid_size) * self.grid_size)
+        new_pos.setY(round(new_pos.y() / self.grid_size) * self.grid_size)
+
+        scene_rect = self.proxy.scene().sceneRect()
+        widget_rect = self.rect()
+
+        new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
+        new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
+        self.move(new_x, new_y)
+        self.updateLines()
+
+        self.position_changed.emit(new_x, new_y)
+
+    def mouseMoveEvent(self, event):
+        if not self.grabbed:
+            return
+
+        new_pos = self.pos() + (event.pos() - self.grabbed_pos)
+        scene_rect = self.proxy.scene().sceneRect()
+        widget_rect = self.rect()
+
+        new_x = max(scene_rect.left(), min(new_pos.x(), scene_rect.right() - widget_rect.width()))
+        new_y = max(scene_rect.top(), min(new_pos.y(), scene_rect.bottom() - widget_rect.height()))
+        self.move(new_x, new_y)
+        self.node_moved.emit()
+        self.updateLines()
+
+    def updateState(self, state_str, index, new_value):
+        state_list = list(state_str)
+        state_list[index] = new_value
+        return "".join(state_list)
+
+    def removeLine(self, line):
+        if line in self.connected_lines:
+            self.connected_lines.remove(line)
+
+    def updateLines(self):
+        for line in self.connected_lines:
+            line.updatePath()
+
+    def setTitle(self, title):
+        self.title.setText(title)
+
+class NodeEditor(QStackedWidget):
+    node_ready = Signal(str, str)
+    back = Signal()
+
+    def __init__(self, title=None, id=None, parent=None):
+        super().__init__(parent)
+        self.title = title
+        self.id = id
+
+        self.setObjectName("Dialog")
+        self.initLayout()
+    
+    def setId(self, id):
+        self.id = id
+
+    def initLayout(self):
+        input_label = QLabel("NODE NAME")
+        input_label.setObjectName("TextInputLabel")
+        input_label.setAlignment(Qt.AlignCenter)
+        self.node_name_input = QLineEdit()
+        self.node_name_input.setObjectName("TextInput")
+        buttons = QHBoxLayout()
+        back_button = BackButton()
+        back_button.clicked.connect(lambda: self.back.emit())
+        buttons.addWidget(back_button)
+        buttons.addStretch()
+        accept_button = AcceptButton()
+        accept_button.clicked.connect(lambda: self.nodeReady())
+        buttons.addWidget(accept_button)
+
+        layout = QVBoxLayout()
+
+        layout.setAlignment(Qt.AlignCenter)
+        layout.addWidget(input_label)
+        layout.addWidget(self.node_name_input)
+        layout.addLayout(buttons)
+
+        self.editor = QFrame()
+        self.editor.setLayout(layout)
+
+        self.addWidget(self.editor)
+    
+    def nodeReady(self):
+        title = self.node_name_input.text()
+        if not title:
+            return
+
+        self.node_ready.emit(title, self.id)
+
+    def setNodeName(self, text):
+        self.node_name_input.setText(text)
+
+    def reset(self):
+        if self.widget(1):
+            self.removeWidget(self.widget(1))
+        self.setCurrentIndex(0)
+        self.setNodeName(None)

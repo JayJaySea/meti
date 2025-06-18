@@ -7,10 +7,10 @@
 }
 
 #ChecklistTitle {
-    font-family: "Rajdhani", Arial, sans-serif;
+    font-family: "RobotoMono", Arial, sans-serif;
+    font-weight: normal;
     text-transform: uppercase;
-    font-weight: bold;
-    font-size: 30px;
+    font-size: 25px;
 }
 
 #ChecklistHead {
@@ -70,4 +70,12 @@
 
 #ItemEditor {
     background-color: $background;
+}
+
+#Node {
+    background-color: $background;
+    border-style: solid;
+    border-width: 2px;
+    border-radius: 5px;
+    border-color: $foreground;
 }

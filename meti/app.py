@@ -22,6 +22,9 @@ def main():
     font_path = os.path.join(DATA_DIR, "fonts", "Orbitron-Regular.ttf")
     font_id = QFontDatabase.addApplicationFont(font_path)
 
+    font_path = os.path.join(DATA_DIR, "fonts", "RobotoMono-Regular.ttf")
+    font_id = QFontDatabase.addApplicationFont(font_path)
+
     window = MainWindow()
     window.show()
 
