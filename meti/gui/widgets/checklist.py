@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication
 from PySide6 import QtGui
-from PySide6.QtGui import QRegion, QBitmap, QPainter
+from PySide6.QtGui import QRegion, QBitmap, QPainter, QKeyEvent
 from PySide6.QtCore import Qt, QPoint, Signal, Slot, QRect, QEvent, QEvent, QObject, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -402,9 +402,14 @@ class ChecklistEditor(QStackedWidget):
         self.is_template = is_template
 
         self.navigator = ItemNavigator()
+        self.confirmer = ChecklistConfirmer()
+        self.confirmer.confirm_checklist.connect(self.checklistReady)
 
         self.setObjectName("Dialog")
         self.initLayout()
+
+        for child in self.findChildren(QWidget):
+            child.installEventFilter(self.confirmer)
     
     def setId(self, id):
         if not self.is_template:
@@ -515,6 +520,7 @@ class ChecklistEditor(QStackedWidget):
         if not title or not self.item_editor.itemsFilled():
             return
 
+        self.checklist_name_input.setText("")
         items = self.item_editor.getItems()
         self.checklist_ready.emit(title, items, self.id, None)
 
@@ -540,10 +546,14 @@ class ItemEditor(QScrollArea):
         self.is_template = is_template
         self.current_item = 0
         self.navigator = ItemNavigator()
+        self.confirmer = ChecklistConfirmer()
         self.navigator.prev.connect(self.prevItem)
         self.navigator.next.connect(self.nextItem)
+        self.setLayoutDirection(Qt.RightToLeft)
+        self.verticalScrollBar().setLayoutDirection(Qt.LeftToRight)
 
-        self.setFixedSize(500, 300)
+        self.setFixedSize(500, 450)
+        self.verticalScrollBar().setSingleStep(45)
 
         self.setWidgetResizable(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -558,6 +568,7 @@ class ItemEditor(QScrollArea):
     def initLayout(self):
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(5)
 
         self.layout.addWidget(self.createAddButton())
         self.layout.addStretch()
@@ -575,7 +586,7 @@ class ItemEditor(QScrollArea):
 
     def createAddButton(self):
         layout = QHBoxLayout()
-        layout.setContentsMargins(0, 5, 0, 5)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addStretch()
         add_button = AddButton()
@@ -638,6 +649,7 @@ class ItemEditor(QScrollArea):
         for child in item["widget"].findChildren(QWidget):
             if isinstance(child, QLineEdit):
                 child.installEventFilter(self.navigator)
+                child.installEventFilter(self.confirmer)
 
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
         item["widget"].setFocus()
@@ -671,7 +683,7 @@ class ItemEditor(QScrollArea):
     def wheelEvent(self, event):
         delta = event.angleDelta().y() / 120
         self.verticalScrollBar().setValue(
-            self.verticalScrollBar().value() - delta * 50
+            self.verticalScrollBar().value() - delta * 45
         )
         event.accept()
 
@@ -756,11 +768,19 @@ class ItemNavigator(QObject):
         if event.type() == QEvent.KeyPress and isinstance(obj, QLineEdit):
             if event.key() == Qt.Key_Up:
                 self.prev.emit()
-                return False
             elif event.key() == Qt.Key_Down:
                 self.next.emit()
-                return False
         return super().eventFilter(obj, event)
+
+class ChecklistConfirmer(QObject):
+    confirm_checklist = Signal()
+
+    def eventFilter(self, obj, event):
+        if isinstance(event, QKeyEvent) and event.key() in (Qt.Key_Return, Qt.Key_Enter) and event.modifiers() & Qt.ControlModifier:
+            self.confirm_checklist.emit()
+            return None
+        else:
+            return super().eventFilter(obj, event)
 
 class EditableItem(QFrame):
     grabbed = Signal()
@@ -801,9 +821,9 @@ class EditableItem(QFrame):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
-        layout.addWidget(self.edit, stretch=1)
-        layout.addWidget(updown_button)
         layout.addWidget(self.delete_button)
+        layout.addWidget(updown_button)
+        layout.addWidget(self.edit, stretch=1)
 
         self.setLayout(layout)
     
@@ -1145,6 +1165,6 @@ class SelectAllLineEdit(QLineEdit):
         self.focused.emit()
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+        if (event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter) and not (event.modifiers() & Qt.ControlModifier):
             self.enter_pressed.emit()
         super().keyPressEvent(event)
