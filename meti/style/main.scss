@@ -18,6 +18,12 @@ QStackedWidget {
     background-color: $background-dark;
 }
 
+SelectAllLineEdit:focus {
+    border-color: $yellow;
+    selection-background-color: $yellow;
+    selection-color: $background;
+}
+
 QLineEdit {
     background-color: $background-dark;
     padding: 5px;
@@ -25,6 +31,8 @@ QLineEdit {
     border-width: 2px;
     border-style: solid;
     border-color: $foreground;
+    selection-background-color: $foreground;
+    selection-color: $background;
 }
 
 #Workspace {

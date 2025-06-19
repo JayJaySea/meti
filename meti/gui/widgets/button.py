@@ -1,6 +1,6 @@
 from PySide6 import QtGui
 from PySide6.QtCore import QSize, Qt, QPoint, Signal, QEvent
-from PySide6.QtGui import QPixmap, QColor
+from PySide6.QtGui import QPixmap, QColor, QCursor
 from PySide6.QtWidgets import QPushButton, QStyleOption, QStyle, QHBoxLayout
 import os
 from meti.data import DATA_DIR
@@ -56,21 +56,26 @@ class IconButton(QPushButton):
         self.hoverStyle()
 
     def mouseMoveEvent(self, event):
-        mouse_pos = event.globalPosition().toPoint()
+        self.updateHover()
+
+    def updateHover(self):
+        mouse_pos = QCursor.pos()
         button_rect = self.rect().translated(self.mapToGlobal(QPoint(0, 0)))
 
         if button_rect.contains(mouse_pos):
             if not self.hovering:
                 self.hovering = True
+                self.setCursor(Qt.PointingHandCursor)
         else:
             if self.hovering:
                 self.hovering = False
+                self.setCursor(Qt.ArrowCursor)
 
         if not self.hovering:
             self.defaultStyle()
         elif self.active:
             self.activeStyle()
-
+    
     def leaveEvent(self, event):
         self.unsetCursor()
         self.defaultStyle()
@@ -124,6 +129,8 @@ class AcceptButton(IconButton):
 class DeleteButton(IconButton):
     def __init__(self, size="large", parent=None, id=None):
         super().__init__("delete", "red", size=size, parent=parent, id=id)
+        # self.setFocusPolicy(Qt.ClickFocus)
+        # self.indicator.setFocusPolicy(Qt.ClickFocus)
 
 class CloseButton(IconButton):
     def __init__(self, size="large", parent=None, id=None):
@@ -144,6 +151,8 @@ class UpDownButton(IconButton):
 
     def __init__(self, size="large", parent=None, id=None):
         super().__init__("updown", "yellow", size=size, parent=parent, id=id)
+        self.setFocusPolicy(Qt.ClickFocus)
+        self.indicator.setFocusPolicy(Qt.ClickFocus)
 
     def enterEvent(self, event):
         self.setCursor(Qt.OpenHandCursor)

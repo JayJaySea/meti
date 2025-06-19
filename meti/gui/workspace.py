@@ -176,6 +176,7 @@ class Workspace(QGraphicsView):
         self.checklist_editor.setChecklistName(checklist["title"])
         self.checklist_editor.setChecks(checklist["checks"])
         self.checklist_editor_dialog.show()
+        self.checklist_editor.checklist_name_input.setFocus()
 
     def showNodeEditDialog(self, id):
         checklist = self.checklists[id]

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication
 from PySide6 import QtGui
 from PySide6.QtGui import QRegion, QBitmap, QPainter
-from PySide6.QtCore import Qt, QPoint, Signal, Slot, QRect, QEvent
+from PySide6.QtCore import Qt, QPoint, Signal, Slot, QRect, QEvent, QEvent, QObject, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -59,8 +59,6 @@ class Checklist(QFrame):
         self.title.setObjectName("ChecklistTitle")
         layout.addWidget(self.title, stretch=1)
         placeholder = QWidget()
-        #placeholder.setFixedWidth(20)
-        #layout.addWidget(placeholder)
         edit_button = EditButton(size="medium")
         edit_button.clicked.connect(lambda: self.edit_checklist.emit(self.id))
         layout.addWidget(edit_button)
@@ -403,6 +401,8 @@ class ChecklistEditor(QStackedWidget):
         self.id = id
         self.is_template = is_template
 
+        self.navigator = ItemNavigator()
+
         self.setObjectName("Dialog")
         self.initLayout()
     
@@ -420,12 +420,18 @@ class ChecklistEditor(QStackedWidget):
         input_label = QLabel("CHECKLIST NAME")
         input_label.setObjectName("TextInputLabel")
         input_label.setAlignment(Qt.AlignCenter)
-        self.checklist_name_input = QLineEdit()
+        self.checklist_name_input = SelectAllLineEdit()
         self.checklist_name_input.setObjectName("TextInput")
         items_label = QLabel("ITEMS")
         items_label.setObjectName("TextInputLabel")
         items_label.setAlignment(Qt.AlignCenter)
         self.item_editor = ItemEditor(self.checks, is_template=self.is_template)
+        self.item_editor.focus_title.connect(self.checklist_name_input.setFocus)
+
+        self.navigator.prev.connect(self.item_editor.focusLast)
+        self.navigator.next.connect(self.item_editor.focusFirst)
+        self.checklist_name_input.installEventFilter(self.navigator)
+
         buttons = QHBoxLayout()
         back_button = BackButton()
         back_button.clicked.connect(lambda: self.back.emit())
@@ -455,7 +461,6 @@ class ChecklistEditor(QStackedWidget):
 
         self.editor = QFrame()
         self.editor.setLayout(layout)
-
 
         self.addWidget(self.editor)
     
@@ -526,13 +531,18 @@ class ChecklistEditor(QStackedWidget):
         self.setChecklistName(None)
         self.setChecks(None)
 
-
 class ItemEditor(QScrollArea):
+    focus_title = Signal()
     def __init__(self, items=None, is_template=False, parent=None):
         super().__init__(parent)
         self.checks = items if items else []
         self.dragging = False
         self.is_template = is_template
+        self.current_item = 0
+        self.navigator = ItemNavigator()
+        self.navigator.prev.connect(self.prevItem)
+        self.navigator.next.connect(self.nextItem)
+
         self.setFixedSize(500, 300)
 
         self.setWidgetResizable(True)
@@ -540,6 +550,10 @@ class ItemEditor(QScrollArea):
         self.setObjectName("ItemEditor")
 
         self.initLayout()
+
+        for child in self.findChildren(QWidget):
+            if isinstance(child, QLineEdit):
+                child.installEventFilter(self.navigator)
 
     def initLayout(self):
         self.layout = QVBoxLayout()
@@ -550,6 +564,9 @@ class ItemEditor(QScrollArea):
 
         for item in self.checks:
             self.addItem(item)
+
+        if not self.checks:
+            self.addItem()
 
         container = QFrame()
         container.setLayout(self.layout)
@@ -571,6 +588,36 @@ class ItemEditor(QScrollArea):
 
         return add_new
 
+    def prevItem(self):
+        self.current_item = self.current_item - 1
+        if self.current_item < 0:
+            self.focus_title.emit()
+            return
+
+        self.checks[self.current_item]["widget"].setFocus()
+
+    def nextItem(self):
+        self.current_item = self.current_item + 1
+        if self.current_item >= len(self.checks):
+            self.focus_title.emit()
+            return
+
+        self.checks[self.current_item]["widget"].setFocus()
+
+    def focusFirst(self):
+        self.focusIndex(0)
+        self.verticalScrollBar().setValue(0)
+
+    def focusLast(self):
+        self.focusIndex(len(self.checks) - 1)
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
+    def focusIndex(self, i):
+        i = min(len(self.checks) - 1, i)
+        i = max(0, i)
+
+        self.checks[i]["widget"].setFocus()
+
     def addItem(self, item=None):
         if not item:
             item = {}
@@ -579,10 +626,21 @@ class ItemEditor(QScrollArea):
         item["widget"].grabbed.connect(self.itemGrabbed)
         item["widget"].released.connect(self.itemReleased)
         item["widget"].moving.connect(self.itemMoving)
+        item["widget"].focused.connect(self.itemFocused)
+        item["widget"].add_new.connect(self.addItem)
+        item["widget"].deleted.connect(self.itemDeleted)
+
         self.layout.insertWidget(self.layout.count() - 2, item["widget"])
         
         if not item.get("id"):
             self.checks.append(item)
+
+        for child in item["widget"].findChildren(QWidget):
+            if isinstance(child, QLineEdit):
+                child.installEventFilter(self.navigator)
+
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+        item["widget"].setFocus()
 
     def itemGrabbed(self):
         self.dragging = True
@@ -606,6 +664,9 @@ class ItemEditor(QScrollArea):
                     self.layout.removeWidget(dragged)
                     self.layout.insertWidget(i, dragged)
                     break
+
+    def itemFocused(self, item):
+        self.current_item = next(i for i, c in enumerate(self.checks) if c["widget"] == item)
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y() / 120
@@ -668,17 +729,46 @@ class ItemEditor(QScrollArea):
                 widget.setParent(None)
                 widget.deleteLater()
 
-        self.checks = checks if checks else []
+        self.checks = list(checks) if checks else []
         self.layout.addWidget(self.createAddButton())
         self.layout.addStretch()
 
         for check in self.checks:
             self.addItem(check)
 
+    def itemDeleted(self, item):
+        self.layout.removeWidget(item)
+        index = next(i for i, c in enumerate(self.checks) if c["widget"] == item)
+        self.checks.pop(index)
+
+        QApplication.focusWidget().clearFocus()
+        QTimer.singleShot(50, self.updateHover)
+
+    def updateHover(self):
+        for item in self.checks:
+            item["widget"].updateHover()
+
+class ItemNavigator(QObject):
+    prev = Signal()
+    next = Signal()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and isinstance(obj, QLineEdit):
+            if event.key() == Qt.Key_Up:
+                self.prev.emit()
+                return False
+            elif event.key() == Qt.Key_Down:
+                self.next.emit()
+                return False
+        return super().eventFilter(obj, event)
+
 class EditableItem(QFrame):
     grabbed = Signal()
     moving = Signal(QEvent)
     released = Signal()
+    focused = Signal(object)
+    add_new = Signal()
+    deleted = Signal(object)
 
     def __init__(self, content=None, id=None, parent=None):
         super().__init__(parent)
@@ -690,25 +780,30 @@ class EditableItem(QFrame):
 
         self.initLayout()
 
+    def focusInEvent(self, event):
+        self.edit.setFocus()
+
     def initLayout(self):
-        edit = QLineEdit(self.content)
-        edit.setObjectName("TextInput")
-        edit.textChanged.connect(self.onTextChanged)
+        self.edit = SelectAllLineEdit(self.content)
+        self.edit.setObjectName("TextInput")
+        self.edit.textChanged.connect(self.onTextChanged)
+        self.edit.focused.connect(lambda: self.focused.emit(self))
+        self.edit.enter_pressed.connect(self.add_new.emit)
 
         updown_button = UpDownButton()
         updown_button.pressed.connect(lambda: self.grabbed.emit())
         updown_button.released.connect(lambda: self.released.emit())
         updown_button.moving.connect(lambda event: self.moving.emit(event))
 
-        delete_button = DeleteButton()
-        delete_button.clicked.connect(lambda: self.delete())
+        self.delete_button = DeleteButton()
+        self.delete_button.clicked.connect(lambda: self.delete())
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
+        layout.addWidget(self.edit, stretch=1)
         layout.addWidget(updown_button)
-        layout.addWidget(delete_button)
-        layout.addWidget(edit, stretch=1)
+        layout.addWidget(self.delete_button)
 
         self.setLayout(layout)
     
@@ -716,9 +811,12 @@ class EditableItem(QFrame):
         self.content = text
 
     def delete(self):
-        self.parent().layout().removeWidget(self)
+        self.deleted.emit(self)
         self.setParent(None)
         self.deleteLater()
+
+    def updateHover(self):
+        self.delete_button.updateHover()
 
 class TemplatePicker(QFrame):
     back = Signal()
@@ -1033,3 +1131,20 @@ class NodeEditor(QStackedWidget):
             self.removeWidget(self.widget(1))
         self.setCurrentIndex(0)
         self.setNodeName(None)
+
+class SelectAllLineEdit(QLineEdit):
+    focused = Signal()
+    enter_pressed = Signal()
+    def __init__(self, text=None):
+        super().__init__(text)
+        self.setObjectName("SelectAllLineEdit")
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.selectAll()
+        self.focused.emit()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            self.enter_pressed.emit()
+        super().keyPressEvent(event)
