@@ -404,6 +404,7 @@ class ChecklistEditor(QStackedWidget):
         self.navigator = ItemNavigator()
         self.confirmer = ChecklistConfirmer()
         self.confirmer.confirm_checklist.connect(self.checklistReady)
+        self.installEventFilter(self.confirmer)
 
         self.setObjectName("Dialog")
         self.initLayout()
@@ -533,9 +534,13 @@ class ChecklistEditor(QStackedWidget):
     def reset(self):
         if self.widget(1):
             self.removeWidget(self.widget(1))
+        self.id = None
         self.setCurrentIndex(0)
         self.setChecklistName(None)
         self.setChecks(None)
+
+    def showEvent(self, event):
+        self.checklist_name_input.setFocus()
 
 class ItemEditor(QScrollArea):
     focus_title = Signal()
@@ -552,7 +557,7 @@ class ItemEditor(QScrollArea):
         self.setLayoutDirection(Qt.RightToLeft)
         self.verticalScrollBar().setLayoutDirection(Qt.LeftToRight)
 
-        self.setFixedSize(500, 450)
+        self.setFixedSize(500, 315)
         self.verticalScrollBar().setSingleStep(45)
 
         self.setWidgetResizable(True)
@@ -748,6 +753,9 @@ class ItemEditor(QScrollArea):
         for check in self.checks:
             self.addItem(check)
 
+        if not self.checks:
+            self.addItem()
+
     def itemDeleted(self, item):
         self.layout.removeWidget(item)
         index = next(i for i, c in enumerate(self.checks) if c["widget"] == item)
@@ -768,8 +776,10 @@ class ItemNavigator(QObject):
         if event.type() == QEvent.KeyPress and isinstance(obj, QLineEdit):
             if event.key() == Qt.Key_Up:
                 self.prev.emit()
+                return False
             elif event.key() == Qt.Key_Down:
                 self.next.emit()
+                return False
         return super().eventFilter(obj, event)
 
 class ChecklistConfirmer(QObject):
@@ -778,7 +788,7 @@ class ChecklistConfirmer(QObject):
     def eventFilter(self, obj, event):
         if isinstance(event, QKeyEvent) and event.key() in (Qt.Key_Return, Qt.Key_Enter) and event.modifiers() & Qt.ControlModifier:
             self.confirm_checklist.emit()
-            return None
+            return False
         else:
             return super().eventFilter(obj, event)
 
@@ -1102,9 +1112,15 @@ class NodeEditor(QStackedWidget):
         super().__init__(parent)
         self.title = title
         self.id = id
+        self.confirmer = ChecklistConfirmer()
+        self.confirmer.confirm_checklist.connect(self.nodeReady)
 
         self.setObjectName("Dialog")
         self.initLayout()
+
+        self.installEventFilter(self.confirmer)
+        for child in self.findChildren(QWidget):
+            child.installEventFilter(self.confirmer)
     
     def setId(self, id):
         self.id = id
@@ -1113,7 +1129,7 @@ class NodeEditor(QStackedWidget):
         input_label = QLabel("NODE NAME")
         input_label.setObjectName("TextInputLabel")
         input_label.setAlignment(Qt.AlignCenter)
-        self.node_name_input = QLineEdit()
+        self.node_name_input = SelectAllLineEdit()
         self.node_name_input.setObjectName("TextInput")
         buttons = QHBoxLayout()
         back_button = BackButton()
@@ -1141,16 +1157,22 @@ class NodeEditor(QStackedWidget):
         if not title:
             return
 
+        self.node_name_input.setText("")
         self.node_ready.emit(title, self.id)
 
     def setNodeName(self, text):
         self.node_name_input.setText(text)
+        self.node_name_input.setFocus()
 
     def reset(self):
         if self.widget(1):
             self.removeWidget(self.widget(1))
+        self.id = None
         self.setCurrentIndex(0)
         self.setNodeName(None)
+
+    def showEvent(self, event):
+        self.node_name_input.setFocus()
 
 class SelectAllLineEdit(QLineEdit):
     focused = Signal()
@@ -1160,7 +1182,6 @@ class SelectAllLineEdit(QLineEdit):
         self.setObjectName("SelectAllLineEdit")
 
     def focusInEvent(self, event):
-        super().focusInEvent(event)
         self.selectAll()
         self.focused.emit()
 

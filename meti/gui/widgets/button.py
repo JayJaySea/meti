@@ -110,9 +110,6 @@ class IconButton(QPushButton):
         self.indicator.style().unpolish(self.indicator)
         self.indicator.style().polish(self.indicator)
         self.indicator.update()
-        self.style().unpolish(self)
-        self.style().polish(self)
-        self.update()
 
 class AddButton(IconButton):
     def __init__(self, size="large", parent=None, id=None):
